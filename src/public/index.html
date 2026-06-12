@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Job Outreach Automator</title>
+    <!-- Custom SVG Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%236366f1'/%3E%3Cpath d='M25 35h50v30H25z' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/%3E%3Cpath d='M25 35l25 18 25-18' fill='none' stroke='white' stroke-width='6' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <!-- Premium Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="/admin.css?v=10" />
+  </head>
+  <body>
+    <div class="app-container">
+      
+      <!-- LEFT SIDEBAR -->
+      <aside class="sidebar">
+        <!-- Brand identity -->
+        <div class="brand-section">
+          <h1>JOB OUTREACH</h1>
+          <span class="brand-sub">AUTOMATOR</span>
+          <div id="status" class="system-status">System Operational</div>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="sidebar-nav">
+          <button class="tab-btn active" data-tab="tab-leads" type="button"><span class="nav-icon">📊</span><span class="tab-text">Leads</span></button>
+          <button class="tab-btn" data-tab="tab-queue" type="button"><span class="nav-icon">📤</span><span class="tab-text">Outbox</span></button>
+          <button class="tab-btn" data-tab="tab-applications" type="button"><span class="nav-icon">💼</span><span class="tab-text">Applications</span></button>
+          <button class="tab-btn" data-tab="tab-job-search" type="button"><span class="nav-icon">🔍</span><span class="tab-text">Job Automator</span></button>
+          <button class="tab-btn" data-tab="tab-templates" type="button"><span class="nav-icon">📄</span><span class="tab-text">Templates</span></button>
+          <button class="tab-btn" data-tab="tab-gmail" type="button"><span class="nav-icon">📝</span><span class="tab-text">Activity Logs</span></button>
+          <button class="tab-btn" data-tab="tab-system" type="button"><span class="nav-icon">🚀</span><span class="tab-text">Campaigns</span></button>
+          <button class="tab-btn" data-tab="tab-company-insights" type="button"><span class="nav-icon">🏢</span><span class="tab-text">Company</span></button>
+          <button class="tab-btn" data-tab="tab-backup" type="button"><span class="nav-icon">💾</span><span class="tab-text">Backup</span></button>
+          <button class="tab-btn" data-tab="tab-settings" type="button"><span class="nav-icon">⚙️</span><span class="tab-text">Settings</span></button>
+        </nav>
+      </aside>
+
+      <!-- RIGHT WORKSPACE -->
+      <main class="workspace">
+        <header class="workspace-header">
+          <!-- Metrics slot -->
+          <div class="metrics-wrapper" id="metrics">
+            <!-- Dynamic metrics will load here -->
+          </div>
+          
+          <!-- Actions slot / Google Auth Widget -->
+          <div class="workspace-actions">
+            <div class="google-auth-widget">
+              <div class="google-status-bar" id="googleConnectionStatusBar">
+                <span class="status-indicator danger-glow" id="googleStatusIndicator"></span>
+                <span class="status-text" id="googleStatusText">Sign-In Required</span>
+              </div>
+              <button id="connectGoogleButton" type="button" class="btn btn-accent btn-compact">Connect Gmail</button>
+              <button id="disconnectGoogleButton" type="button" class="btn btn-outline btn-disconnect btn-compact">Disconnect</button>
+            </div>
+          </div>
+        </header>
+        
+        <div class="workspace-content">
+          <!-- GMAIL QUOTA BREACHED WARNING BANNER -->
+          <div id="quotaWarningBanner" class="quota-warning-banner" style="display: none;">
+            <div class="quota-warning-content">
+              <span class="quota-warning-icon">⚠️</span>
+              <span class="quota-warning-text">Gmail Quota breached, halting processing for today.</span>
+            </div>
+            <button id="resetQuotaHaltBtn" type="button" class="btn btn-compact btn-danger">Reset Halt</button>
+          </div>
+
+          <!-- TAB 1: LEADS MANAGEMENT -->
+          <div id="tab-leads" class="tab-content active">
+             <!-- Active Outreach Profiles -->
+             <section class="workspace-section">
+               <div class="section-header-row">
+                 <div class="section-header">
+                   <h2>Leads</h2>
+                   <p class="subtitle-muted">Launch campaigns, search leads, and filter status.</p>
+                 </div>
+                 <div class="section-actions">
+                   <button id="toggleManualLeadBtn" class="btn btn-outline" type="button">
+                     <span class="btn-icon">＋</span> Add Lead
+                   </button>
+                   <button id="toggleCsvImportBtn" class="btn btn-outline" type="button">
+                     <span class="btn-icon">↑</span> Import CSV
+                   </button>
+                 </div>
+               </div>
+
+               <!-- Collapsible CSV Panel -->
+               <div id="csvImportPanel" class="collapsible-panel">
+                 <div class="panel-header">
+                   <h3>Import Leads via CSV</h3>
+                   <p class="subtitle-muted">Required columns: <code>firstName</code>, <code>email</code>, <code>company</code> &nbsp;|&nbsp; Optional: <code>lastName</code>, <code>linkedinUrl</code></p>
+                 </div>
+
+                 <!-- Drop zone -->
+                 <div id="csvDropZone" class="csv-drop-zone">
+                   <span class="csv-drop-icon">📂</span>
+                   <p class="csv-drop-primary">Drop your CSV file here</p>
+                   <p class="csv-drop-secondary">or</p>
+                   <button id="csvSelectFileBtn" class="btn btn-outline btn-compact" type="button">Browse File</button>
+                   <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
+                   <p id="csvFileName" class="csv-file-name-label">No file selected</p>
+                 </div>
+
+                 <!-- Preview section (hidden until CSV is loaded) -->
+                 <div id="csvPreviewSection" class="csv-preview-section" style="display:none;">
+                   <div class="csv-preview-toolbar">
+                     <div class="csv-preview-stats">
+                       <span id="csvStatTotal" class="csv-stat csv-stat-total">0 rows</span>
+                       <span id="csvStatNew" class="csv-stat csv-stat-new">0 new</span>
+                       <span id="csvStatDupCsv" class="csv-stat csv-stat-dup-csv">0 duplicate in CSV</span>
+                       <span id="csvStatDupDb" class="csv-stat csv-stat-dup-db">0 already in DB</span>
+                     </div>
+                     <div class="csv-preview-actions">
+                       <button id="csvSelectAllBtn" class="btn btn-outline btn-compact" type="button">Select All</button>
+                       <button id="csvDeselectDupsBtn" class="btn btn-outline btn-compact" type="button">Deselect Duplicates</button>
+                       <button id="csvSelectNewOnlyBtn" class="btn btn-outline btn-compact" type="button">New Only</button>
+                     </div>
+                   </div>
+
+                   <div class="csv-preview-table-wrapper">
+                     <table class="csv-preview-table" id="csvPreviewTable">
+                       <thead>
+                         <tr>
+                           <th><input type="checkbox" id="csvCheckAll" title="Toggle all" /></th>
+                           <th>#</th>
+                           <th>First Name</th>
+                           <th>Last Name</th>
+                           <th>Email</th>
+                           <th>Company</th>
+                           <th>Status</th>
+                         </tr>
+                       </thead>
+                       <tbody id="csvPreviewBody">
+                       </tbody>
+                     </table>
+                   </div>
+
+                   <div class="csv-import-footer">
+                     <span id="csvSelectedCount" class="csv-selected-count">0 rows selected</span>
+                     <div class="csv-footer-actions">
+                       <button id="csvCancelBtn" class="btn btn-outline" type="button">Cancel</button>
+                       <button id="csvImportSelectedBtn" class="btn btn-accent" type="button" disabled>Import Selected</button>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
+               <!-- Collapsible Manual Lead Panel -->
+               <div id="manualLeadPanel" class="collapsible-panel">
+                 <div class="panel-header">
+                   <h3>Add Lead Manually</h3>
+                   <p class="subtitle-muted">Directly add a new lead to the automator.</p>
+                 </div>
+                 <form id="manualLeadForm" class="manual-lead-form-inline">
+                   <input type="text" id="manualFirstName" placeholder="First Name" required />
+                   <input type="text" id="manualLastName" placeholder="Last Name (opt)" />
+                   <input type="email" id="manualEmail" placeholder="Email Address" required />
+                   <input type="text" id="manualCompany" placeholder="Company Name" required />
+                   <div class="checkbox-inline">
+                     <input type="checkbox" id="manualEmailVerified" checked />
+                     <label for="manualEmailVerified">Skip Bounce Monitor</label>
+                   </div>
+                   <button type="submit" class="btn btn-accent">Add Lead</button>
+                 </form>
+               </div>
+               
+               <div class="table-controls margin-top-24">
+                 <input type="text" id="leadsSearchInput" class="search-input" placeholder="Search by name, company, or email..." />
+               </div>
+               
+               <div id="leadsTableContainer" class="table-wrapper">
+                 <!-- Dynamic leads will render here -->
+               </div>
+               
+               <div id="leadsPagination" class="pagination-container">
+                 <button id="leadsPrevPageBtn" class="btn btn-outline" type="button">Previous</button>
+                 <span id="leadsPageInfo">Page 1 of 1</span>
+                 <button id="leadsNextPageBtn" class="btn btn-outline" type="button">Next</button>
+               </div>
+             </section>
+          </div>
+          
+          <!-- TAB 2: OUTBOX QUEUE -->
+          <div id="tab-queue" class="tab-content">
+             <section class="workspace-section">
+                <div class="section-header">
+                  <h2>Outbox Queue</h2>
+                  <p class="subtitle-muted">Monitor and manage scheduled outreach campaigns by lead or grouped by company.</p>
+                </div>
+
+                <!-- Section 1: Lead-wise Outbox -->
+                <div class="margin-top-24">
+                  <h3 style="font-size: 16px; font-weight: 600; color: var(--color-text-bright); margin-bottom: 8px;">Lead Queue</h3>
+                  <div class="campaigns-toolbar">
+                    <div class="campaigns-search-wrap">
+                      <input type="text" id="queueSearchInput" class="campaigns-search-input" placeholder="Search by lead name, company, or email..." />
+                    </div>
+                    <div class="campaigns-toolbar-divider"></div>
+                    <div class="campaigns-controls">
+                      <select id="queueStatusFilter" class="campaigns-select">
+                        <option value="all">Status (All)</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="active">Active (In-flight)</option>
+                        <option value="paused">Paused</option>
+                      </select>
+                      <div id="queueCountBadge" class="campaigns-count-badge">0 Leads</div>
+                    </div>
+                  </div>
+                  <div id="queueTableContainer" class="table-wrapper">
+                    <!-- Dynamic queue items will render here -->
+                  </div>
+                </div>
+
+                <!-- Section 2: Company-wise Outbox -->
+                <div class="margin-top-32" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
+                  <h3 style="font-size: 16px; font-weight: 600; color: var(--color-text-bright); margin-bottom: 8px;">Company Queue</h3>
+                  <div class="campaigns-toolbar">
+                    <div class="campaigns-search-wrap">
+                      <input type="text" id="companyQueueSearchInput" class="campaigns-search-input" placeholder="Search by company name..." />
+                    </div>
+                    <div class="campaigns-toolbar-divider"></div>
+                    <div class="campaigns-controls">
+                      <select id="companyQueueStatusFilter" class="campaigns-select">
+                        <option value="all">Status (All)</option>
+                        <option value="scheduled">With Scheduled</option>
+                        <option value="active">With Active (In-flight)</option>
+                        <option value="paused">With Paused</option>
+                      </select>
+                      <div id="companyQueueCountBadge" class="campaigns-count-badge">0 Companies</div>
+                    </div>
+                  </div>
+                  <div id="companyQueueTableContainer" class="table-wrapper">
+                    <!-- Grouped company outbox items will render here -->
+                  </div>
+                </div>
+             </section>
+          </div>
+
+          <!-- TAB: APPLICATIONS CONSOLE -->
+          <div id="tab-applications" class="tab-content">
+             <section class="workspace-section">
+               <div class="section-header-row">
+                 <div class="section-header">
+                   <h2>Job Applications</h2>
+                   <p class="subtitle-muted">Track your job applications and update their status.</p>
+                 </div>
+               </div>
+
+               <!-- Add Application Panel -->
+               <div class="applications-form-container margin-top-16">
+                 <form id="addApplicationForm" class="applications-form-inline">
+                   <input type="text" id="appCompanyName" placeholder="Company Name" required />
+                   <input type="text" id="appRole" placeholder="Job Role Name" required />
+                   <input type="text" id="appJobId" placeholder="Job ID (Optional)" />
+                   <input type="url" id="appJobLink" placeholder="Job Link (Optional)" />
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <button type="submit" id="appFormSubmitBtn" class="btn btn-accent">Add Application</button>
+                      <button type="button" id="cancelAppEditBtn" class="btn btn-outline" style="display: none; border-color: var(--color-text-muted); color: var(--color-text-muted); padding: 0 16px; height: 38px;">Cancel</button>
+                    </div>
+                 </form>
+               </div>
+
+               <div id="applicationsTableContainer" class="table-wrapper margin-top-24">
+                 <!-- Dynamic applications table will render here -->
+               </div>
+             </section>
+          </div>
+
+          <!-- TAB: EMAIL TEMPLATES -->
+          <div id="tab-templates" class="tab-content">
+            <section class="workspace-section">
+              <div class="section-header-row">
+                <div class="section-header">
+                  <h2>Email Templates</h2>
+                  <p class="subtitle-muted">Create, edit, and manage outreach email templates with smart placeholders.</p>
+                </div>
+              </div>
+
+              <!-- Two-column layout: Editor + List -->
+              <div class="templates-layout">
+
+                <!-- LEFT: Editor Card -->
+                <div class="template-editor-card">
+                  <div class="template-editor-header">
+                    <h3 id="templateEditorTitle">New Template</h3>
+                    <div class="editor-mode-toggle">
+                      <button id="btnTabWrite" class="mode-tab-btn active" type="button">✍️ Write</button>
+                      <button id="btnTabPreview" class="mode-tab-btn" type="button">👁️ Preview</button>
+                    </div>
+                    <button id="templateCancelEditBtn" class="btn btn-outline btn-compact" type="button" style="display:none;">✕ Cancel</button>
+                  </div>
+
+                  <!-- Mode 1: Editor Form -->
+                  <div id="templateWriteContainer">
+                    <div class="form-group">
+                      <label for="templateName">Template Name</label>
+                      <input type="text" id="templateName" placeholder="e.g. Backend Outreach v2" />
+                    </div>
+
+                    <!-- Placeholder Chips -->
+                    <div class="placeholder-chips-panel">
+                      <div class="chips-panel-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                        <p class="chips-label" style="margin: 0;">📌 Click a chip to insert it at cursor position in Subject or Body:</p>
+                        <button id="btnCopyAiPrompt" class="btn btn-outline btn-compact" type="button" style="font-size: 11px; padding: 4px 8px; height: auto;" title="Copy a structured prompt for ChatGPT/Claude">📋 Copy AI Prompt</button>
+                      </div>
+                      <div class="chips-row">
+                        <button class="chip-btn" type="button" data-placeholder="{name}">name</button>
+                        <button class="chip-btn" type="button" data-placeholder="{first_name}">first_name</button>
+                        <button class="chip-btn" type="button" data-placeholder="{company}">company</button>
+                        <button class="chip-btn" type="button" data-placeholder="{role}">role</button>
+                        <button class="chip-btn" type="button" data-placeholder="{job_id}">job_id</button>
+                        <button class="chip-btn" type="button" data-placeholder="{job_link}">job_link</button>
+                        <button class="chip-btn" type="button" data-placeholder="{resume}">resume</button>
+                        <button class="chip-btn" type="button" data-placeholder="{reason}">reason</button>
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="templateSubject">Subject Line</label>
+                      <input type="text" id="templateSubject" placeholder="e.g. Looking for {role} roles | {company}" />
+                    </div>
+
+                    <div class="form-group">
+                      <label for="templateBody">Email Body</label>
+                      <div class="premium-textarea-wrapper">
+                        <textarea id="templateBody" rows="12" placeholder="Hi {first_name},\n\nI saw the {role} opening at {company}..."></textarea>
+                        <div class="editor-status-bar" id="editorStatusBar">
+                          <span id="wordCount">0 words</span>
+                          <span id="charCount">0 chars</span>
+                          <span id="variableCount">0 placeholders</span>
+                          <span id="readTime">&lt; 1 min read</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-group template-default-toggle">
+                      <label class="checkbox-label-fancy">
+                        <input type="checkbox" id="templateIsDefault" />
+                        <span class="checkbox-label-text">⭐ Set as Default Template</span>
+                      </label>
+                      <p class="chips-label">When checked, this template will be pre-selected for all new campaigns.</p>
+                    </div>
+
+                    <div class="template-editor-footer">
+                      <button id="templateSaveBtn" class="btn btn-accent" type="button">Save Template</button>
+                    </div>
+                  </div>
+
+                  <!-- Mode 2: Mock Client Preview -->
+                  <div id="templatePreviewContainer" style="display:none;">
+                    <div class="email-mockup">
+                      <div class="email-mockup-header">
+                        <div class="mockup-dots">
+                          <span class="dot red"></span>
+                          <span class="dot yellow"></span>
+                          <span class="dot green"></span>
+                        </div>
+                        <span class="mockup-title">Interactive Email Preview</span>
+                      </div>
+                      <div class="email-mockup-meta">
+                        <div class="meta-field">
+                          <span class="meta-label">From:</span>
+                          <span class="meta-val highlight-email">vidhichadha25@gmail.com</span>
+                        </div>
+                        <div class="meta-field">
+                          <span class="meta-label">To:</span>
+                          <span class="meta-val highlight-email">john.doe@google.com</span>
+                        </div>
+                        <div class="meta-field">
+                          <span class="meta-label">Subject:</span>
+                          <span class="meta-val font-weight-semibold" id="previewSubject"></span>
+                        </div>
+                      </div>
+                      <div class="email-mockup-body" id="previewBody"></div>
+                    </div>
+                    <div class="preview-info-box">
+                      <p>💡 <em>All placeholder variables have been replaced with live mock data to show exactly how it looks when sent.</em></p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- RIGHT: Saved Templates List -->
+                <div class="template-list-card">
+                  <div class="template-list-header">
+                    <h3>Saved Templates</h3>
+                    <span class="template-count-badge" id="templateCountBadge">0</span>
+                  </div>
+                  <div id="templatesList" class="templates-list-body">
+                    <!-- Dynamic template cards render here -->
+                    <div class="templates-empty-state">
+                      <span class="empty-icon">📭</span>
+                      <p>No templates yet. Create your first one!</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+          </div>
+
+          <!-- TAB 3: ACTIVITY LOGS -->
+          <div id="tab-gmail" class="tab-content">
+             <section class="workspace-section">
+               <div class="section-header">
+                 <h2>Activity Logs</h2>
+                 <p class="subtitle-muted">Real-time log of outbound emails, replies, and system events.</p>
+               </div>
+               <div id="eventsLogTimeline" class="logs-timeline full-width-console">
+                 <!-- Dynamic events timeline will render here -->
+               </div>
+             </section>
+          </div>
+
+          <!-- TAB: CAMPAIGN MANAGEMENT HUB -->
+          <div id="tab-system" class="tab-content">
+             <section class="workspace-section">
+               <div class="section-header">
+                 <h2>Campaigns</h2>
+                 <p class="subtitle-muted">Manage active campaigns &mdash; start, pause, resume, or cancel company-wide outreach.</p>
+               </div>
+
+               <!-- Toolbar: Search + Filter + Sort -->
+               <div class="campaigns-toolbar">
+                 <div class="campaigns-search-wrap">
+                   <input type="text" id="campaignsSearch" class="campaigns-search-input" placeholder="Search by company name or domain..." />
+                 </div>
+                 <div class="campaigns-toolbar-divider"></div>
+                 <div class="campaigns-controls">
+                   <select id="campaignsStatusFilter" class="campaigns-select">
+                     <option value="all">All Statuses</option>
+                     <option value="active">Active</option>
+                     <option value="paused">Paused</option>
+                     <option value="no-campaign">No Campaign</option>
+                   </select>
+                   <select id="campaignsSortBy" class="campaigns-select">
+                     <option value="name-asc">Name A&rarr;Z</option>
+                     <option value="name-desc">Name Z&rarr;A</option>
+                     <option value="leads-desc">Most Leads</option>
+                     <option value="leads-asc">Least Leads</option>
+                     <option value="updated">Recently Updated</option>
+                   </select>
+                   <span id="campaignsCount" class="campaigns-count-badge">0 companies</span>
+                 </div>
+               </div>
+
+               <div id="companiesList" class="companies-grid">
+                 <!-- Dynamic companies list -->
+               </div>
+             </section>
+          </div>
+
+          <!-- TAB: COMPANY INSIGHTS CONSOLE -->
+          <div id="tab-company-insights" class="tab-content">
+            <section class="workspace-section">
+              <div class="section-header-row">
+                <div class="section-header">
+                  <h2>Companies</h2>
+                  <p class="subtitle-muted">Browse all companies in the database and view detailed insights.</p>
+                </div>
+              </div>
+
+              <!-- Search bar for company list -->
+              <div class="company-insights-search-bar">
+                <input type="text" id="companyInsightsSearch" placeholder="🔍  Search companies by name or domain..." class="company-insights-search-input" />
+              </div>
+
+              <!-- Two-column layout: list + detail -->
+              <div class="company-insights-layout">
+                <!-- Left: Company list -->
+                <div class="company-insights-list-panel">
+                  <div id="companyInsightsList" class="company-insights-list">
+                    <!-- Dynamic company rows will render here -->
+                  </div>
+                </div>
+
+                <!-- Right: Company detail drill-down -->
+                <div class="company-insights-detail-panel" id="companyInsightsDetailPanel">
+                  <div class="company-detail-empty-state" id="companyDetailEmptyState">
+                    <span class="company-detail-empty-icon">🏢</span>
+                    <p>Select a company from the list to view its insights</p>
+                  </div>
+                  <div id="companyDetailContent" style="display:none;">
+                    <!-- Company detail content renders here -->
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- TAB: DATABASE SNAPSHOTS & RECOVERY -->
+          <div id="tab-backup" class="tab-content">
+             <section class="workspace-section">
+                <div class="section-header-row">
+                  <div class="section-header">
+                    <h2>Backup & Recovery</h2>
+                    <p class="subtitle-muted">Create localized snapshots of system data or restore your database to a previous state.</p>
+                  </div>
+                </div>
+
+                <div class="backup-actions-card margin-top-24">
+                  <div class="backup-action-content">
+                    <span class="backup-action-icon">💾</span>
+                    <div class="backup-action-text">
+                      <h4>Create System Snapshot</h4>
+                      <p>Dump all companies, leads, emails, campaigns, events, templates, and connection profiles into a local file snapshot.</p>
+                    </div>
+                  </div>
+                  <button id="btnCreateBackup" class="btn btn-accent" type="button">Create Backup Snapshot</button>
+                </div>
+
+                <!-- Backup History List -->
+                <div class="table-card margin-top-24">
+                  <div class="table-card-header">
+                    <h3>Available Snapshots</h3>
+                    <span id="backupCountBadge" class="template-count-badge">0</span>
+                  </div>
+                  <div class="table-wrapper">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Snapshot Filename</th>
+                          <th>Created At</th>
+                          <th>File Size</th>
+                          <th class="actions-cell">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="backupsListBody">
+                        <!-- Snapshots dynamic rows -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+             </section>
+          </div>
+
+          <!-- JOB AUTOMATOR TAB -->
+          <div id="tab-job-search" class="tab-content">
+             <section class="workspace-section">
+                <div class="section-header-row">
+                  <div class="section-header">
+                    <h2>Job Search Automator</h2>
+                    <p class="subtitle-muted">Automate finding suitable jobs on LinkedIn using your active browser session and harvest new companies.</p>
+                  </div>
+                </div>
+
+                <form id="jobSearchSettingsForm" class="margin-top-24">
+                  <div style="max-width: 1000px;">
+                    <!-- LinkedIn Job Search Automator Card -->
+                    <div class="settings-card" style="margin-top: 0;">
+                      <div class="settings-card-header">
+                        <span class="settings-card-icon">💼</span>
+                        <h3>LinkedIn Job Search Automator</h3>
+                      </div>
+                      <div class="settings-card-body">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+                          <!-- Column 1 -->
+                          <div>
+                            <div class="form-group">
+                              <label for="settingsJobSearchEnabled" class="switch-container">
+                                <span class="switch-label">Enable Automated Job Search</span>
+                                <input type="checkbox" id="settingsJobSearchEnabled" class="switch-input" />
+                                <span class="switch-slider"></span>
+                              </label>
+                              <p class="helper-text">Automatically search for jobs on LinkedIn using your active browser session and harvest new companies periodically.</p>
+                            </div>
+                            <div class="form-group margin-top-24">
+                              <label for="settingsJobSearchQuery">Job Search Query</label>
+                              <input type="text" id="settingsJobSearchQuery" class="input-field" required placeholder="e.g. DevOps Engineer" />
+                            </div>
+                            <div class="form-group margin-top-24">
+                              <label for="settingsJobSearchInterval">Search Interval (minutes)</label>
+                              <input type="number" id="settingsJobSearchInterval" min="1" required class="input-field" placeholder="10" />
+                            </div>
+                            <div class="form-group margin-top-24">
+                              <label for="settingsJobSearchTimeRange">Time Range (LinkedIn Filter)</label>
+                              <select id="settingsJobSearchTimeRange" class="select-field">
+                                <option value="r86400">Past 24 Hours</option>
+                                <option value="r259200">Past 3 Days</option>
+                                <option value="r604800">Past Week (7 Days)</option>
+                                <option value="r2592000">Past Month (30 Days)</option>
+                              </select>
+                              <p class="helper-text">Select how far back to look for job postings on LinkedIn.</p>
+                            </div>
+                          </div>
+                          <!-- Column 2 -->
+                          <div>
+                            <div class="form-group">
+                              <label for="settingsJobSearchLocations">Location Filters (comma-separated)</label>
+                              <input type="text" id="settingsJobSearchLocations" class="input-field" placeholder="Bengaluru, Noida, Gurugram, Pune" />
+                              <p class="helper-text">Only harvest jobs located in these cities. Leave blank to match all locations.</p>
+                            </div>
+                            <div class="form-group margin-top-24">
+                              <label for="settingsJobSearchWorkplaceTypes">Workplace Types (comma-separated)</label>
+                              <input type="text" id="settingsJobSearchWorkplaceTypes" class="input-field" placeholder="Hybrid, Remote" />
+                              <p class="helper-text">Filter by workplace setting. Leave blank to match all.</p>
+                            </div>
+                            <div class="form-group margin-top-24">
+                              <label for="settingsJobSearchKeywords">Required Description Keywords (comma-separated)</label>
+                              <input type="text" id="settingsJobSearchKeywords" class="input-field" placeholder="5 days" />
+                              <p class="helper-text">Description keyword match. Leave blank to disable keyword validation.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="settings-actions margin-top-24">
+                      <button type="submit" id="btnSaveJobSearchSettings" class="btn btn-accent">Save Automator Settings</button>
+                      <span id="jobSearchSettingsStatusText" class="settings-status-message"></span>
+                    </div>
+                  </div>
+                </form>
+
+                <!-- Discovered Jobs Output section -->
+                <div class="margin-top-32" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
+                  <div class="section-header-row" style="margin-bottom: 16px;">
+                    <div class="section-header">
+                      <h3 style="font-size: 16px; font-weight: 600; color: var(--color-text-bright); margin-bottom: 4px;">Discovered / Harvested Jobs</h3>
+                      <p class="subtitle-muted" style="font-size: 13px; margin: 0;">New matching jobs discovered by the automator wait here for outreach.</p>
+                    </div>
+                    <div class="section-actions" style="display: flex; gap: 12px; align-items: center;">
+                      <select id="discoveredJobsStatusFilter" class="status-select" style="min-width: 240px; font-weight: 500; height: 36px; padding: 0 10px; cursor: pointer;">
+                        <option value="all" selected>Status: All Discovered</option>
+                        <option value="matched">Status: Matched (Not Applied)</option>
+                        <option value="screened">Status: Screened Out</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="discoveredJobsTableContainer" class="table-wrapper">
+                    <!-- Discovered jobs table will load dynamically here -->
+                  </div>
+                </div>
+             </section>
+          </div>
+
+          <!-- SETTINGS TAB -->
+          <div id="tab-settings" class="tab-content">
+             <section class="workspace-section">
+                <div class="section-header-row">
+                  <div class="section-header">
+                    <h2>System Settings</h2>
+                    <p class="subtitle-muted">Customize default campaign parameters, verifiers, and automated processing modules.</p>
+                  </div>
+                </div>
+
+                <form id="settingsForm" class="margin-top-24">
+                  <div class="settings-grid">
+                    <!-- Campaign Settings Card -->
+                    <div class="settings-card">
+                      <div class="settings-card-header">
+                        <span class="settings-card-icon">🚀</span>
+                        <h3>Campaign Defaults</h3>
+                      </div>
+                      <div class="settings-card-body">
+                        <div class="form-group">
+                          <label for="settingsRespectTiming" class="switch-container">
+                            <span class="switch-label">Respect Timing (Configurable Hours)</span>
+                            <input type="checkbox" id="settingsRespectTiming" class="switch-input" />
+                            <span class="switch-slider"></span>
+                          </label>
+                          <p class="helper-text">When checked, newly created campaigns will default to restricting outreach dispatch to configured hours.</p>
+                        </div>
+                        <div class="form-group margin-top-16" id="settingsTimingHoursGroup">
+                          <label>Respect Timing Hours Window</label>
+                          <div class="form-row margin-top-8">
+                            <div class="form-group">
+                              <label for="settingsTimingStartHour">Start Hour (0-23)</label>
+                              <input type="number" id="settingsTimingStartHour" min="0" max="23" required class="input-field" placeholder="9" />
+                            </div>
+                            <div class="form-group">
+                              <label for="settingsTimingEndHour">End Hour (0-23)</label>
+                              <input type="number" id="settingsTimingEndHour" min="0" max="23" required class="input-field" placeholder="17" />
+                            </div>
+                          </div>
+                          <p class="helper-text">Daily active dispatch window (e.g. 9 to 17, representing 9 AM to 5 PM) when timing restriction is active.</p>
+                        </div>
+                        <div class="form-group margin-top-16">
+                          <label for="settingsFollowupInterval">Default Wait Between Followups (minutes)</label>
+                          <input type="number" id="settingsFollowupInterval" min="1" required class="input-field" />
+                          <p class="helper-text">The default wait time in minutes between consecutive followups in the sequence.</p>
+                        </div>
+                        <div class="form-group margin-top-16">
+                          <label for="settingsMaxFollowups">Default Max Followups</label>
+                          <input type="number" id="settingsMaxFollowups" min="0" required class="input-field" />
+                          <p class="helper-text">Default sequence length limit for follow-up outreach.</p>
+                        </div>
+                        <div class="form-group margin-top-16">
+                          <label for="settingsDefaultResumeLink">Default Resume Link</label>
+                          <input type="url" id="settingsDefaultResumeLink" required class="input-field" />
+                          <p class="helper-text">Fallback Google Drive or hosting link for the candidate's resume/portfolio.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Integration and API Settings Card -->
+                    <div class="settings-card">
+                      <div class="settings-card-header">
+                        <span class="settings-card-icon">🔗</span>
+                        <h3>API & Intelligence Integrations</h3>
+                      </div>
+                      <div class="settings-card-body">
+                        <div class="form-group">
+                          <label for="settingsVerifierProvider">Email Verifier Provider</label>
+                          <select id="settingsVerifierProvider" class="select-field">
+                            <option value="local">Local Verifier (Syntax & MX validation)</option>
+                            <option value="hunter">Hunter.io API (Premium lookup)</option>
+                          </select>
+                          <p class="helper-text">Configures the default validation pipeline to qualify candidate email addresses.</p>
+                        </div>
+                        <div class="form-group margin-top-24">
+                          <label for="settingsEnableAiPattern" class="switch-container">
+                            <span class="switch-label">Enable AI Pattern Discovery</span>
+                            <input type="checkbox" id="settingsEnableAiPattern" class="switch-input" />
+                            <span class="switch-slider"></span>
+                          </label>
+                          <p class="helper-text">Allows utilizing Gemini AI to discover domain-specific variations after standard patterns exhaust.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Background Services Card -->
+                    <div class="settings-card">
+                      <div class="settings-card-header">
+                        <span class="settings-card-icon">🕵️‍♂️</span>
+                        <h3>Background Services</h3>
+                      </div>
+                      <div class="settings-card-body">
+                        <div class="form-group">
+                          <label for="settingsGmailMonitor" class="switch-container">
+                            <span class="switch-label">Gmail Bounce Monitoring</span>
+                            <input type="checkbox" id="settingsGmailMonitor" class="switch-input" />
+                            <span class="switch-slider"></span>
+                          </label>
+                          <p class="helper-text">Automatically poll Gmail mailbox to detect and register campaign bounce events.</p>
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+
+                  <div class="settings-actions margin-top-24">
+                    <button type="submit" id="btnSaveSettings" class="btn btn-accent">Save Settings</button>
+                    <span id="settingsStatusText" class="settings-status-message"></span>
+                  </div>
+                </form>
+             </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- CAMPAIGN START MODAL -->
+    <div id="campaignModal" class="modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Configure Campaign</h3>
+          <button id="closeModalBtn" class="modal-close-btn" type="button">&times;</button>
+        </div>
+        <form id="campaignForm">
+          <input type="hidden" id="formLeadId" />
+          <div class="modal-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="formRecipientEmail">Target Email</label>
+                <select id="formRecipientEmail" required></select>
+              </div>
+              <div class="form-group">
+                <label for="formRoleName">Job Role (Optional)</label>
+                <input type="text" id="formRoleName" placeholder="e.g. SDE Backend" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="formTemplateId">📄 Email Template</label>
+              <select id="formTemplateId">
+                <option value="">— Use Default / System Template —</option>
+              </select>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="formJobId">Job ID (Optional)</label>
+                <input type="text" id="formJobId" placeholder="e.g. DEV-BE01" />
+              </div>
+              <div class="form-group">
+                <label for="formJobLink">Job Link (Optional)</label>
+                <input type="url" id="formJobLink" placeholder="e.g. https://company.io/careers" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="formResume">Attach Resume (PDF - Optional)</label>
+              <input type="file" id="formResume" accept=".pdf" />
+              <p class="modal-info-text" id="resumeUploadStatus">Upload to attach to initial mail</p>
+              <p class="modal-info-text">
+                Default Resume Link: <a href="/admin/default-resume" target="_blank" class="accent-link">View default resume</a> (Used automatically if no PDF is uploaded)
+              </p>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="formScheduleDate">Schedule Start Date (Optional)</label>
+                <input type="datetime-local" id="formScheduleDate" />
+              </div>
+              <div class="form-group">
+                <label for="formFollowupInterval">Follow-up Interval (Minutes)</label>
+                <input type="number" id="formFollowupInterval" value="70" min="1" max="10000" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="formMaxFollowups">Max Follow-ups (0-10)</label>
+                <input type="number" id="formMaxFollowups" value="3" min="0" max="10" required />
+              </div>
+              <div class="form-group checkbox-group checkbox-modal-group">
+                <input type="checkbox" id="formAutoFollowup" checked />
+                <label for="formAutoFollowup">Enable Sequence</label>
+              </div>
+            </div>
+            <div class="form-group checkbox-group margin-top-12">
+              <input type="checkbox" id="formRespectTiming" />
+              <label for="formRespectTiming">Respect Timing (Send only during business hours: 9 AM - 5 PM)</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="cancelModalBtn" type="button">Cancel</button>
+            <button class="btn btn-accent" type="submit">Activate Campaign</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL -->
+    <div id="confirmModal" class="modal">
+      <div class="modal-card confirm-modal-card">
+        <div class="modal-header">
+          <h3 id="confirmModalTitle">Confirm Action</h3>
+          <button id="closeConfirmModalBtn" class="modal-close-btn" type="button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmModalMessage" style="font-size: 14.5px; line-height: 1.6; color: var(--color-text);"></p>
+        </div>
+        <div class="modal-footer" style="gap: 12px; justify-content: flex-end;">
+          <button id="cancelConfirmModalBtn" type="button" class="btn btn-outline" style="min-width: 80px;">Cancel</button>
+          <button id="submitConfirmModalBtn" type="button" class="btn btn-accent btn-danger" style="min-width: 80px;">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESTORE CONFIRMATION MODAL -->
+    <div id="restoreModal" class="modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Restore Database Snapshot</h3>
+          <button id="closeRestoreModalBtn" class="modal-close-btn" type="button">&times;</button>
+        </div>
+        <form id="restoreForm">
+          <input type="hidden" id="restoreSnapshotFile" />
+          <div class="modal-body">
+            <p class="modal-warn-text" style="color: var(--color-warning); font-weight: 600; margin-bottom: 12px;">
+              ⚠️ Warning: You are about to restore database from snapshot: <span id="restoreSnapshotNameDisplay" style="font-family: monospace; color: var(--color-text-bright);"></span>
+            </p>
+            
+            <div class="form-group">
+              <label>Select Restore Mode</label>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+                <label class="radio-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                  <input type="radio" name="restoreMode" value="replace" checked style="margin-top: 4px;" />
+                  <div>
+                    <span style="font-weight: 600; color: var(--color-danger);">Replace Mode (Wipe & Restore)</span>
+                    <p class="chips-label" style="margin: 2px 0 0 0;">Deletes all current database records (companies, leads, events, etc.) and overwrites with the snapshot data. Best for clean restores.</p>
+                  </div>
+                </label>
+                
+                <label class="radio-label" style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+                  <input type="radio" name="restoreMode" value="add" style="margin-top: 4px;" />
+                  <div>
+                    <span style="font-weight: 600; color: var(--color-success);">Add Mode (Merge & Ignore Duplicates)</span>
+                    <p class="chips-label" style="margin: 2px 0 0 0;">Merges backup data into your existing database. Any matching unique keys or duplicates will be ignored without affecting existing records.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="cancelRestoreModalBtn" type="button">Cancel</button>
+            <button class="btn btn-accent" type="submit" id="btnConfirmRestore">Confirm Restore</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- EDIT LEAD MODAL -->
+    <div id="editLeadModal" class="modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Edit Lead Details</h3>
+          <button id="closeEditLeadModalBtn" class="modal-close-btn" type="button">&times;</button>
+        </div>
+        <form id="editLeadForm">
+          <input type="hidden" id="editLeadId" />
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="editLeadFullName">Full Name</label>
+              <input type="text" id="editLeadFullName" required placeholder="e.g. John Doe" />
+            </div>
+            <div class="form-group">
+              <label for="editLeadCompany">Company Name</label>
+              <input type="text" id="editLeadCompany" required placeholder="e.g. Google" />
+            </div>
+            <div class="form-group">
+              <label for="editLeadEmail">Primary Email</label>
+              <input type="email" id="editLeadEmail" required placeholder="e.g. john.doe@company.com" />
+            </div>
+            <div class="form-group">
+              <label for="editLeadTags">Tags (Comma-separated)</label>
+              <input type="text" id="editLeadTags" placeholder="e.g. tag1, tag2, tag3" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="cancelEditLeadBtn" type="button">Cancel</button>
+            <button class="btn btn-accent" type="submit">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- UI Core Logic -->
+    <script src="/app.js?v=10"></script>
+  </body>
+</html>

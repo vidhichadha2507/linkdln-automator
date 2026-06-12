@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id               String                  @id @default(cuid())
+  name             String
+  normalizedName   String                  @unique @map("normalized_name")
+  domain           String?
+  domainConfidence Int                     @default(0) @map("domain_confidence")
+  domainSource     String?                 @map("domain_source")
+  researchReason   String?                 @map("research_reason")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  algorithms       CompanyEmailAlgorithm[]
+  leads            Lead[]
+  candidates       EmailCandidate[]
+
+  @@map("companies")
+}
+
+model EmailAlgorithm {
+  id              String                  @id @default(cuid())
+  key             String                  @unique
+  patternTemplate String                  @unique @map("pattern_template")
+  description     String
+  example         String
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  companies       CompanyEmailAlgorithm[]
+  candidates      EmailCandidate[]
+
+  @@map("email_algorithms")
+}
+
+model CompanyEmailAlgorithm {
+  id                       String         @id @default(cuid())
+  companyId                String         @map("company_id")
+  algorithmId              String         @map("algorithm_id")
+  hitCount                 Int            @default(0) @map("hit_count")
+  missCount                Int            @default(0) @map("miss_count")
+  verificationSuccessCount Int            @default(0) @map("verification_success_count")
+  bounceCount              Int            @default(0) @map("bounce_count")
+  confidenceScore          Int            @default(20) @map("confidence_score")
+  lastVerifiedAt           DateTime?      @map("last_verified_at")
+  rank                     Int            @default(0)
+  createdAt                DateTime       @default(now()) @map("created_at")
+  updatedAt                DateTime       @updatedAt @map("updated_at")
+  company                  Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  algorithm                EmailAlgorithm @relation(fields: [algorithmId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, algorithmId])
+  @@index([companyId, rank])
+  @@map("company_email_algorithms")
+}
+
+model Lead {
+  id             String           @id @default(cuid())
+  fullName       String           @map("full_name")
+  firstName      String           @map("first_name")
+  middleName     String?          @map("middle_name")
+  lastName       String?          @map("last_name")
+  companyId      String           @map("company_id")
+  linkedinUrl    String?          @map("linkedin_url")
+  headline       String?
+  source         String           @default("api")
+  status         String           @default("new")
+  tags           String[]         @default([])
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  candidates     EmailCandidate[]
+  campaignState  CampaignState?
+
+  @@index([companyId])
+  @@map("leads")
+}
+
+model EmailCandidate {
+  id               String          @id @default(cuid())
+  leadId           String          @map("lead_id")
+  companyId        String          @map("company_id")
+  algorithmId      String          @map("algorithm_id")
+  email            String
+  syntaxValid      Boolean         @default(false) @map("syntax_valid")
+  mxValid          Boolean         @default(false) @map("mx_valid")
+  verifierProvider String?         @map("verifier_provider")
+  verifierStatus   String?         @map("verifier_status")
+  verifierScore    Int?            @map("verifier_score")
+  isCatchAll       Boolean         @default(false) @map("is_catch_all")
+  selected         Boolean         @default(false)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  lead             Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  algorithm        EmailAlgorithm  @relation(fields: [algorithmId], references: [id], onDelete: Cascade)
+  events           EmailEvent[]
+  campaignStates   CampaignState[]
+
+  @@unique([leadId, email])
+  @@index([companyId])
+  @@index([algorithmId])
+  @@map("email_candidates")
+}
+
+model CampaignState {
+  id                   String         @id @default(cuid())
+  leadId               String         @unique @map("lead_id")
+  candidateId          String         @map("candidate_id")
+  status               String         @default("draft") // draft, scheduled, sent_initial, sent_followup_1, sent_followup_2, completed, bounced, replied
+  jobLink              String?        @map("job_link")
+  jobId                String?        @map("job_id")
+  resumePath           String?        @map("resume_path")
+  resumeName           String?        @map("resume_name")
+  scheduledFor         DateTime?      @map("scheduled_for")
+  lastSentAt           DateTime?      @map("last_sent_at")
+  followupCount        Int            @default(0) @map("followup_count")
+  followupIntervalMinutes Int         @default(70) @map("followup_interval_minutes")
+  maxFollowups         Int            @default(3) @map("max_followups")
+  subject              String?        @map("subject")
+  body                 String?        @map("body")
+  respectTiming        Boolean        @default(false) @map("respect_timing")
+  isPaused             Boolean        @default(false) @map("is_paused")
+  skipBounceMonitor    Boolean        @default(false) @map("skip_bounce_monitor")
+  roleName             String?        @map("role_name")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+
+  lead                 Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  candidate            EmailCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  templateId           String?        @map("template_id")
+  template             Template?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@map("campaign_states")
+}
+
+model EmailEvent {
+  id          String         @id @default(cuid())
+  candidateId String         @map("candidate_id")
+  eventType   String         @map("event_type")
+  provider    String
+  rawPayload  Json           @map("raw_payload")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  candidate   EmailCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@map("email_events")
+}
+
+model SuppressionEntry {
+  id        String   @id @default(cuid())
+  email     String?
+  domain    String?
+  reason    String
+  source    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([domain])
+  @@map("suppression_entries")
+}
+
+model GoogleCredentials {
+  key          String   @id
+  refreshToken String   @map("refresh_token")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("google_credentials")
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  companyName     String   @map("company_name")
+  role            String
+  jobLink         String?  @map("job_link")
+  jobId           String?  @map("job_id")
+  status          String   @default("Not Applied") // Not Applied, Applied, Screen out, Reached out, Interviewing, Selected, Rejected
+  screenOutReason String?  @map("screen_out_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("applications")
+}
+
+model Template {
+  id             String          @id @default(cuid())
+  name           String
+  subject        String
+  body           String
+  isDefault      Boolean         @default(false) @map("is_default")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  campaignStates CampaignState[]
+
+  @@map("templates")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+

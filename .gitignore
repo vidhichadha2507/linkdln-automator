@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.DS_Store
+.prisma/
+coverage/
+npm-debug.log*
+backups/*
+client_secret_813864107905-52ebp54qqikmloavqsu3pnjibt81h5tb.apps.googleusercontent.com.json
+pgsql/

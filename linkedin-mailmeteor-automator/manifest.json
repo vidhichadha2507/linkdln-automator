@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn & Mailmeteor Email Automator",
+  "description": "Automate finding professional email addresses from LinkedIn company people sections using Mailmeteor.",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "alarms",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.linkedin.com/*",
+    "https://*.mailmeteor.com/*",
+    "https://mailmeteor.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.linkedin.com/jobs/search/*",
+        "https://*.linkedin.com/jobs/*"
+      ],
+      "js": [
+        "linkedinJobScraper.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.linkedin.com/*"
+      ],
+      "js": [
+        "linkedinContentScript.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.mailmeteor.com/*",
+        "https://mailmeteor.com/*"
+      ],
+      "js": [
+        "mailmeteorContentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Email Automator Dashboard",
+    "default_popup": "popup.html"
+  }
+}
