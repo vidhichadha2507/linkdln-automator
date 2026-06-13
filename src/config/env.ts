@@ -23,6 +23,9 @@ const envSchema = z.object({
   GMAIL_CLIENT_SECRET: z.preprocess(stripQuotes, z.string().optional()),
   GMAIL_REFRESH_TOKEN: z.preprocess(stripQuotes, z.string().optional()),
   GMAIL_MONITOR_ENABLED: z.preprocess(stripQuotes, z.coerce.boolean()).default(false),
+  // Explicit OAuth redirect URI. Set this to exactly the URI registered in Google Cloud Console.
+  // Example: https://linkdln-automator-xxx.vercel.app/auth/google/callback
+  GOOGLE_REDIRECT_URI: z.preprocess(stripQuotes, z.string().optional()),
   ENABLE_AI_PATTERN_DISCOVERY: z.preprocess((val) => {
     const stripped = stripQuotes(val);
     return stripped === "true" || stripped === "1" || stripped === true;

@@ -6,15 +6,20 @@ import { getIsEnvTokenExpired, setIsEnvTokenExpired } from "../services/gmailSer
 export async function registerAuthRoutes(app: FastifyInstance) {
   // Initiates Google OAuth consent screen redirect
   app.get("/auth/google", async (request, reply) => {
-    const { GMAIL_CLIENT_ID } = env;
+    const { GMAIL_CLIENT_ID, GOOGLE_REDIRECT_URI } = env;
 
     if (!GMAIL_CLIENT_ID) {
       return reply.status(400).send("GMAIL_CLIENT_ID is not configured in environment variables.");
     }
 
-    const host = request.headers.host || "localhost:4000";
-    const protocol = request.headers["x-forwarded-proto"] || "http";
-    const redirectUri = `${protocol}://${host}/auth/google/callback`;
+    // Prefer explicit env var (most reliable); fall back to dynamic construction
+    let redirectUri = GOOGLE_REDIRECT_URI;
+    if (!redirectUri) {
+      const host = request.headers.host || "localhost:4000";
+      // x-forwarded-proto may be "https,https" on Vercel — take only the first value
+      const proto = (request.headers["x-forwarded-proto"] as string || "http").split(",")[0].trim();
+      redirectUri = `${proto}://${host}/auth/google/callback`;
+    }
 
     const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
     const options = {
@@ -41,15 +46,19 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.status(400).send("No authorization code provided by Google.");
     }
 
-    const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET } = env;
+    const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = env;
 
     if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET) {
       return reply.status(400).send("Gmail OAuth client ID or client secret is not configured.");
     }
 
-    const host = request.headers.host || "localhost:4000";
-    const protocol = request.headers["x-forwarded-proto"] || "http";
-    const redirectUri = `${protocol}://${host}/auth/google/callback`;
+    // Must match exactly what was sent in the /auth/google initiation request
+    let redirectUri = GOOGLE_REDIRECT_URI;
+    if (!redirectUri) {
+      const host = request.headers.host || "localhost:4000";
+      const proto = (request.headers["x-forwarded-proto"] as string || "http").split(",")[0].trim();
+      redirectUri = `${proto}://${host}/auth/google/callback`;
+    }
 
     try {
       const response = await fetch("https://oauth2.googleapis.com/token", {

@@ -1,7 +1,7 @@
 import cors from "@fastify/cors";
-import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import path from "node:path";
+import fs from "node:fs";
 import { env } from "./config/env.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerAuthRoutes } from "./routes/auth.js";
@@ -13,6 +13,7 @@ import { startCampaignScheduler, processCampaignQueue } from "./services/campaig
 import { registerJobSearchRoutes } from "./routes/jobSearch.js";
 import { pollGmailBounces } from "./services/gmailService.js";
 
+// Resolve public directory relative to CWD (Vercel: /var/task, local: project root)
 const publicDir = path.resolve(process.cwd(), "public");
 
 // Keep track of recent request URLs for serverless routing diagnostics
@@ -21,11 +22,11 @@ export const recentUrls: string[] = [];
 export async function buildApp() {
   const app = Fastify({
     logger: true,
-    disableRequestLogging: true
+    disableRequestLogging: false
   });
 
-  app.addHook("onRequest", async (request, reply) => {
-    recentUrls.push(`${request.method} ${request.url} (Headers: ${JSON.stringify(request.headers)})`);
+  app.addHook("onRequest", async (request, _reply) => {
+    recentUrls.push(`${request.method} ${request.url}`);
     if (recentUrls.length > 30) {
       recentUrls.shift();
     }
@@ -35,27 +36,55 @@ export async function buildApp() {
     origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN
   });
 
-  // Serve static files from memory to ensure zero-stream compatibility with serverless environments
-  const fsPromises = await import("node:fs/promises");
+  // --- In-memory static file serving (Vercel serverless compatible) ---
+  // Files are read once at cold-start. If any file is missing, we log the error
+  // but continue so other routes still work.
   const staticFiles = [
-    { route: "/", file: "index.html", type: "text/html; charset=utf-8" },
-    { route: "/index.html", file: "index.html", type: "text/html; charset=utf-8" },
-    { route: "/admin.html", file: "admin.html", type: "text/html; charset=utf-8" },
-    { route: "/admin.css", file: "admin.css", type: "text/css; charset=utf-8" },
-    { route: "/admin.js", file: "admin.js", type: "application/javascript; charset=utf-8" },
-    { route: "/app.js", file: "app.js", type: "application/javascript; charset=utf-8" }
+    { route: "/",            file: "index.html", type: "text/html; charset=utf-8" },
+    { route: "/index.html",  file: "index.html", type: "text/html; charset=utf-8" },
+    { route: "/admin.html",  file: "admin.html", type: "text/html; charset=utf-8" },
+    { route: "/admin.css",   file: "admin.css",  type: "text/css; charset=utf-8" },
+    { route: "/admin.js",    file: "admin.js",   type: "application/javascript; charset=utf-8" },
+    { route: "/app.js",      file: "app.js",     type: "application/javascript; charset=utf-8" }
   ];
 
+  // Debug route — safe to expose (no secrets), helps diagnose serverless path issues
+  app.get("/debug/fs", async (_request, reply) => {
+    const cwd = process.cwd();
+    let files: string[] = [];
+    try { files = fs.readdirSync(publicDir); } catch { files = []; }
+    return reply.send({
+      cwd,
+      publicDir,
+      publicFiles: files,
+      nodeVersion: process.version,
+      env: process.env.NODE_ENV,
+      vercel: !!process.env.VERCEL
+    });
+  });
+
   for (const item of staticFiles) {
+    const filePath = path.join(publicDir, item.file);
+    let content: Buffer | null = null;
     try {
-      const filePath = path.join(publicDir, item.file);
-      const content = await fsPromises.readFile(filePath);
-      app.get(item.route, async (request, reply) => {
-        return reply.type(item.type).send(content);
-      });
+      content = fs.readFileSync(filePath);
+      app.log.info(`✅ Loaded static file: ${filePath} (${content.length} bytes)`);
     } catch (err: any) {
-      app.log.error(err, `⚠️ Failed to load static file ${item.file}`);
+      app.log.error(`❌ Cannot read static file ${filePath}: ${err.message}`);
     }
+
+    // Always register the route; if content is null, return a meaningful 503
+    const capturedContent = content;
+    const capturedItem = item;
+    app.get(item.route, async (_request, reply) => {
+      if (!capturedContent) {
+        return reply.status(503).send(
+          `Static file "${capturedItem.file}" could not be loaded from ${publicDir}. ` +
+          `Check /debug/fs to inspect the serverless filesystem.`
+        );
+      }
+      return reply.type(capturedItem.type).send(capturedContent);
+    });
   }
 
   await registerHealthRoutes(app);
