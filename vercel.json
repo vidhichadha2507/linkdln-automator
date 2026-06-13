@@ -2,7 +2,35 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/health",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/leads/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/suppressions/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/webhooks/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/job-search/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/:path*",
       "destination": "/api/index"
     }
   ],
