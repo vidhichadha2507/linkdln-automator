@@ -1,20 +1,16 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": "src/public/**"
-      }
-    }
-  ],
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index.ts"
+      "destination": "/api/index"
     }
   ],
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "src/public/**"
+    }
+  },
   "crons": [
     {
       "path": "/api/campaigns/tick",
