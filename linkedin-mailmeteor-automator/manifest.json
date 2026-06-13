@@ -13,7 +13,8 @@
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.mailmeteor.com/*",
-    "https://mailmeteor.com/*"
+    "https://mailmeteor.com/*",
+    "https://linkdln-automator-vidhichadha2507s-projects.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js"
