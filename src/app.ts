@@ -33,8 +33,7 @@ export async function buildApp() {
     { route: "/admin.html", file: "admin.html", type: "text/html; charset=utf-8" },
     { route: "/admin.css", file: "admin.css", type: "text/css; charset=utf-8" },
     { route: "/admin.js", file: "admin.js", type: "application/javascript; charset=utf-8" },
-    { route: "/app.js", file: "app.js", type: "application/javascript; charset=utf-8" },
-    { route: "/Vidhi_chadha_resume.pdf", file: "Vidhi_chadha_resume.pdf", type: "application/pdf" }
+    { route: "/app.js", file: "app.js", type: "application/javascript; charset=utf-8" }
   ];
 
   for (const item of staticFiles) {
