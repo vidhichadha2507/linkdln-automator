@@ -6,7 +6,7 @@ import { prisma } from "../lib/prisma.js";
 import { pollGmailBounces, simulateGmailBounce, isGmailQuotaHalted, setGmailQuotaHalted } from "../services/gmailService.js";
 import { startCampaign, processCampaignQueue, type StartCampaignInput } from "../services/campaignService.js";
 import { syncCompanyResearch } from "../services/candidateService.js";
-import { createBackupSnapshot, listBackupSnapshots, restoreBackupSnapshot, deleteBackupSnapshot } from "../services/backupService.js";
+import { createBackupSnapshot, listBackupSnapshots, restoreBackupSnapshot, deleteBackupSnapshot, getBackupContent } from "../services/backupService.js";
 import { env } from "../config/env.js";
 import { parseName } from "../modules/nameParser.js";
 import { cleanCompanyName, normalizeCompanyName } from "../modules/companyNormalizer.js";
@@ -1260,6 +1260,19 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         message: error instanceof Error ? error.message : "Failed to delete backup"
       });
     }
+  });
+
+  // Download a backup file directly from DB storage
+  app.get("/admin/backup/:filename/download", async (request, reply) => {
+    const { filename } = request.params as { filename: string };
+    const content = await getBackupContent(filename);
+    if (!content) {
+      return reply.status(404).send({ success: false, message: "Backup not found" });
+    }
+    return reply
+      .header("Content-Type", "application/json")
+      .header("Content-Disposition", `attachment; filename="${filename}"`)
+      .send(content);
   });
 }
 
