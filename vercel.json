@@ -22,7 +22,43 @@
       "destination": "/api/index"
     },
     {
-      "source": "/admin/:path*",
+      "source": "/admin/default-resume",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/settings",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/summary",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/companies",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/leads/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/events",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/gmail/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/applications",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/applications/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/campaigns",
       "destination": "/api/index"
     },
     {
