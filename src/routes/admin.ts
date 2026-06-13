@@ -114,15 +114,6 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     return { success: true, added, skipped, total: parsed.data.length, companies: importedCompanies };
   });
 
-  // Return all companies (used to build targeted LinkedIn search URLs)
-  app.get("/admin/companies", async () => {
-    const companies = await prisma.company.findMany({
-      select: { id: true, name: true, normalizedName: true, domain: true, createdAt: true },
-      orderBy: { createdAt: "desc" }
-    });
-    return companies;
-  });
-
   // ─────────────────────────────────────────────────────────────────────────
 
   app.get("/admin/summary", async () => {
