@@ -6,6 +6,11 @@
       "destination": "/api"
     }
   ],
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "src/public/**"
+    }
+  },
   "crons": [
     {
       "path": "/api/campaigns/tick",

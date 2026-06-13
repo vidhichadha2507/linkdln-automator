@@ -19,4 +19,17 @@ const envSchema = z.object({
   DEFAULT_RESUME_LINK: z.string().url().default("https://drive.google.com/file/d/1VV_oE3081TrsNd1CrKfzyEBZZBzKng20/view?usp=sharing")
 });
 
-export const env = envSchema.parse(process.env);
+let parsedEnv: z.infer<typeof envSchema>;
+
+try {
+  parsedEnv = envSchema.parse(process.env);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error("❌ Environment validation failed!");
+    console.error(JSON.stringify(error.format(), null, 2));
+    console.error("👉 Please verify that you have added the required environment variables (especially DATABASE_URL) to your Vercel project configuration.");
+  }
+  throw error;
+}
+
+export const env = parsedEnv;
