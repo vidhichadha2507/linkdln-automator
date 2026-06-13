@@ -33,7 +33,19 @@ export async function buildApp() {
   });
 
   await app.register(cors, {
-    origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN
+    origin: (origin, cb) => {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return cb(null, true);
+      // Always allow chrome-extension:// origins so the browser extension can call the API
+      if (origin.startsWith("chrome-extension://")) return cb(null, true);
+      // If CORS_ORIGIN is wildcard, allow everything
+      if (env.CORS_ORIGIN === "*") return cb(null, true);
+      // Otherwise only allow the configured origin
+      if (origin === env.CORS_ORIGIN) return cb(null, true);
+      cb(new Error("Not allowed by CORS"), false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
   });
 
   // --- In-memory static file serving (Vercel serverless compatible) ---
