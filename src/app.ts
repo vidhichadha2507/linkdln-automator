@@ -13,7 +13,7 @@ import { startCampaignScheduler, processCampaignQueue } from "./services/campaig
 import { registerJobSearchRoutes } from "./routes/jobSearch.js";
 import { pollGmailBounces } from "./services/gmailService.js";
 
-const publicDir = path.resolve(process.cwd(), "src/public");
+const publicDir = path.resolve(process.cwd(), "public");
 
 export async function buildApp() {
   const app = Fastify({

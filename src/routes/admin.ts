@@ -16,7 +16,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
   app.get("/admin/default-resume", async (request, reply) => {
     const resumeLink = await getSystemSetting("defaultResumeLink");
     if (resumeLink.includes("localhost") || resumeLink.includes("127.0.0.1") || resumeLink.includes("/Vidhi_chadha_resume.pdf")) {
-      const publicDir = path.resolve(process.cwd(), "src/public");
+      const publicDir = path.resolve(process.cwd(), "public");
       const filePath = path.join(publicDir, "Vidhi_chadha_resume.pdf");
       if (fs.existsSync(filePath)) {
         const stream = fs.createReadStream(filePath);
@@ -30,7 +30,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
   });
 
   app.get("/Vidhi_chadha_resume.pdf", async (request, reply) => {
-    const publicDir = path.resolve(process.cwd(), "src/public");
+    const publicDir = path.resolve(process.cwd(), "public");
     const filePath = path.join(publicDir, "Vidhi_chadha_resume.pdf");
     if (fs.existsSync(filePath)) {
       const stream = fs.createReadStream(filePath);
