@@ -1,4 +1,4 @@
-﻿// Job Outreach Automator Client Application Logic
+// Job Outreach Automator Client Application Logic
 
 document.addEventListener("DOMContentLoaded", () => {
   // Application State
@@ -4088,23 +4088,71 @@ Vidhi Chadha
 
           if (!data || data.length < 2) { showToast("File appears empty or has no data rows.", "error"); return; }
 
-          headers = (data[0] || []).map(h => String(h).trim());
-          parsedRows = data.slice(1).filter(row => row.some(cell => String(cell).trim() !== ""));
+          // Find the actual header row — skip blank or single-cell rows at the top
+          let headerRowIdx = 0;
+          for (let i = 0; i < Math.min(5, data.length); i++) {
+            const nonEmpty = data[i].filter(c => String(c).trim() !== "").length;
+            if (nonEmpty >= 2) { headerRowIdx = i; break; }
+          }
+
+          headers = (data[headerRowIdx] || []).map(h => String(h).trim());
+          parsedRows = data.slice(headerRowIdx + 1).filter(row => row.some(cell => String(cell).trim() !== ""));
 
           colSelect.innerHTML = headers.map((h, i) =>
-            `<option value="${i}">${h || `Column ${i + 1}`}</option>`
+            `<option value="${i}">${h ? h : `Column ${i + 1}`}</option>`
           ).join("");
-          // Auto-pick best column
-          const autoIdx = headers.findIndex(h => /company|organisation|organization|name|firm/i.test(h));
-          if (autoIdx >= 0) colSelect.value = autoIdx;
 
-          rowCountEl.textContent = `${parsedRows.length} data rows detected`;
+          // Try many patterns to auto-detect the company column
+          const patterns = [
+            /^company\s*name$/i,
+            /^company$/i,
+            /^organisation\s*name$/i,
+            /^organization\s*name$/i,
+            /^employer$/i,
+            /^employer\s*name$/i,
+            /^firm$/i,
+            /^business\s*name$/i,
+            /^account\s*name$/i,
+            /company/i,
+            /organisation/i,
+            /organization/i,
+            /firm/i,
+          ];
+
+          let autoIdx = -1;
+          for (const pat of patterns) {
+            autoIdx = headers.findIndex(h => pat.test(h));
+            if (autoIdx >= 0) break;
+          }
+
+          // Fallback: if still not found, pick the column with most unique non-numeric values
+          if (autoIdx < 0) {
+            let bestScore = -1;
+            headers.forEach((_, i) => {
+              const vals = parsedRows.map(r => String(r[i] ?? "").trim()).filter(v => v && isNaN(Number(v)));
+              const unique = new Set(vals).size;
+              if (unique > bestScore) { bestScore = unique; autoIdx = i; }
+            });
+          }
+
+          if (autoIdx >= 0) colSelect.value = String(autoIdx);
+
+          // Show a detection banner so user can verify / change
+          const detectedName = autoIdx >= 0 ? (headers[autoIdx] || `Column ${autoIdx + 1}`) : "None";
+          rowCountEl.innerHTML = `
+            <span style="color:var(--color-success, #22c55e); font-weight:600;">
+              ✓ Auto-detected: "${detectedName}"
+            </span>
+            &nbsp;·&nbsp; ${parsedRows.length} rows
+            &nbsp;·&nbsp; <span style="color:var(--color-text-muted)">Change above if wrong</span>`;
+
           colSelectorGrp.style.display = "block";
           renderPreview();
           importActions.style.display = "flex";
           resultCard.style.display = "none";
         } catch (err) {
           showToast("Failed to parse file: " + err.message, "error");
+          console.error("Excel parse error:", err);
         }
       };
       reader.readAsBinaryString(file);
