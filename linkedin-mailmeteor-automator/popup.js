@@ -1,3 +1,6 @@
+// Backend API URL — change this if you deploy to a different Vercel project
+const BACKEND_URL = "https://linkdln-automator-vidhichadha2507s-projects.vercel.app";
+
 let allProfiles = [];
 let allLeads = [];
 let allLogs = [];
@@ -1154,7 +1157,7 @@ function syncLeadToDb(id, button) {
 
     const lead = list[leadIndex];
 
-    fetch("http://localhost:4000/leads/extension-import", {
+    fetch(`${BACKEND_URL}/leads/extension-import`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -1320,7 +1323,7 @@ function runPageExtraction() {
 }
 
 function fetchJobs() {
-  fetch("http://localhost:4000/admin/applications")
+  fetch(`${BACKEND_URL}/admin/applications`)
     .then(res => {
       if (!res.ok) throw new Error("Failed to load jobs");
       return res.json();
@@ -1354,7 +1357,7 @@ function saveJob() {
   const originalText = btnSpan.textContent;
   btnSpan.textContent = "Saving...";
 
-  fetch("http://localhost:4000/admin/applications", {
+  fetch(`${BACKEND_URL}/admin/applications`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1391,7 +1394,7 @@ function saveJob() {
 function deleteJob(id) {
   if (!confirm("Are you sure you want to delete this application?")) return;
 
-  fetch(`http://localhost:4000/admin/applications/${id}`, {
+  fetch(`${BACKEND_URL}/admin/applications/${id}`, {
     method: "DELETE"
   })
   .then(res => {

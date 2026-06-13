@@ -1,5 +1,8 @@
 // background.js
 
+// Backend API URL — must match popup.js
+const BACKEND_URL = "https://linkdln-automator-vidhichadha2507s-projects.vercel.app";
+
 let safetyTimeout = null;
 
 // Centralized helper to write to real-time logs in local storage
@@ -80,7 +83,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "GET_JOB_SEARCH_SETTINGS") {
-    fetch("http://localhost:4000/admin/settings")
+    fetch(`${BACKEND_URL}/admin/settings`)
       .then(res => res.json())
       .then(settings => {
         sendResponse({ settings });
@@ -96,7 +99,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { jobs } = message;
     addLog(`Received ${jobs.length} harvested jobs from scraper. Syncing with backend...`);
     
-    fetch("http://localhost:4000/job-search/harvest-jobs", {
+    fetch(`${BACKEND_URL}/job-search/harvest-jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(jobs)
@@ -428,7 +431,7 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 async function checkAndTriggerJobSearch() {
   try {
-    const res = await fetch("http://localhost:4000/admin/settings");
+    const res = await fetch(`${BACKEND_URL}/admin/settings`);
     if (!res.ok) return;
     const settings = await res.json();
     
