@@ -129,8 +129,8 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       }
     });
 
-    return companies.map(company => {
-      const startedCampaigns = company.leads.filter(lead => 
+    return companies.map((company: any) => {
+      const startedCampaigns = company.leads.filter((lead: any) => 
         lead.campaignState !== null && 
         lead.campaignState.status !== "completed" && 
         lead.campaignState.status !== "bounced" && 
@@ -138,7 +138,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         lead.campaignState.status !== "cancelled"
       );
       const startedCampaignCount = startedCampaigns.length;
-      const pausedCampaignCount = startedCampaigns.filter(lead => 
+      const pausedCampaignCount = startedCampaigns.filter((lead: any) => 
         lead.campaignState !== null && lead.campaignState.isPaused
       ).length;
 
