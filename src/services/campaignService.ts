@@ -609,6 +609,7 @@ export async function processCampaignQueue() {
   const defaultResumeLink = await getSystemSetting("defaultResumeLink");
   const timingStartHour = await getSystemSetting("timingStartHour");
   const timingEndHour = await getSystemSetting("timingEndHour");
+  const skipWeekends = await getSystemSetting("skipWeekends");
 
   try {
     const now = new Date();
@@ -636,6 +637,16 @@ export async function processCampaignQueue() {
       const firstName = campaign.lead.firstName;
       const companyName = campaign.lead.company.name;
       const to = campaign.candidate.email;
+
+      // Skip sending on weekends if the setting is enabled
+      if (skipWeekends) {
+        const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          const dayName = dayOfWeek === 0 ? "Sunday" : "Saturday";
+          console.log(`   📅 [Skip Weekends] Today is ${dayName}. Skipping all campaigns (skipWeekends is enabled).`);
+          break; // All campaigns share the same date — no point iterating further
+        }
+      }
 
       if (campaign.respectTiming) {
         const currentHour = now.getHours();

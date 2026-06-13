@@ -3873,6 +3873,8 @@ Vidhi Chadha
           settingsRespectTiming.dataset.listenerWired = "true";
         }
       }
+      const settingsSkipWeekends = document.getElementById("settingsSkipWeekends");
+      if (settingsSkipWeekends) settingsSkipWeekends.checked = settings.skipWeekends !== undefined ? settings.skipWeekends : true;
       if (settingsTimingStartHour) settingsTimingStartHour.value = settings.timingStartHour !== undefined ? settings.timingStartHour : 9;
       if (settingsTimingEndHour) settingsTimingEndHour.value = settings.timingEndHour !== undefined ? settings.timingEndHour : 17;
       if (settingsFollowupInterval) settingsFollowupInterval.value = settings.followupIntervalMinutes || 70;
@@ -3933,6 +3935,7 @@ Vidhi Chadha
 
     const payload = {
       respectTiming: settingsRespectTiming ? settingsRespectTiming.checked : false,
+      skipWeekends: document.getElementById("settingsSkipWeekends") ? document.getElementById("settingsSkipWeekends").checked : true,
       timingStartHour: settingsTimingStartHour ? parseInt(settingsTimingStartHour.value, 10) : 9,
       timingEndHour: settingsTimingEndHour ? parseInt(settingsTimingEndHour.value, 10) : 17,
       followupIntervalMinutes: settingsFollowupInterval ? parseInt(settingsFollowupInterval.value, 10) : 70,

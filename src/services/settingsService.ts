@@ -4,6 +4,7 @@ import { z } from "zod";
 
 export interface SystemSettings {
   respectTiming: boolean;
+  skipWeekends: boolean;
   timingStartHour: number;
   timingEndHour: number;
   followupIntervalMinutes: number;
@@ -23,6 +24,7 @@ export interface SystemSettings {
 
 export const settingsSchema = z.object({
   respectTiming: z.boolean(),
+  skipWeekends: z.boolean(),
   timingStartHour: z.number().int().min(0).max(23),
   timingEndHour: z.number().int().min(0).max(23),
   followupIntervalMinutes: z.number().int().positive(),
@@ -42,6 +44,7 @@ export const settingsSchema = z.object({
 
 export const DEFAULT_SETTINGS: SystemSettings = {
   get respectTiming(): boolean { return false; },
+  get skipWeekends(): boolean { return true; },
   get timingStartHour(): number { return 9; },
   get timingEndHour(): number { return 17; },
   get followupIntervalMinutes(): number { return 70; },
