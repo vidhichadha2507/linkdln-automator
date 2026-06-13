@@ -1,4 +1,4 @@
-// Job Outreach Automator Client Application Logic
+﻿// Job Outreach Automator Client Application Logic
 
 document.addEventListener("DOMContentLoaded", () => {
   // Application State
@@ -4041,13 +4041,29 @@ Vidhi Chadha
     const openLinkedinBtn = document.getElementById("excelOpenLinkedinBtn");
     const copyLinkedinBtn = document.getElementById("excelCopyLinkedinBtn");
 
-    if (!dropZone) return; // tab not in DOM
+    if (!dropZone) return;
 
-    let parsedRows = [];    // all data rows from the sheet
-    let headers    = [];    // column header names
-    let importedCompanies = []; // result from backend
+    const LS_KEY = "importedCompanies_v1";
+    let parsedRows = [];
+    let headers    = [];
+    let importedCompanies = [];
 
-    // ── Drag & drop styling ──
+    // ── Restore from localStorage on load ──
+    try {
+      const stored = localStorage.getItem(LS_KEY);
+      if (stored) {
+        importedCompanies = JSON.parse(stored);
+        if (importedCompanies.length > 0) {
+          resultSummary.innerHTML =
+            `📂 <strong>${importedCompanies.length}</strong> companies loaded from previous session &nbsp;·&nbsp; ` +
+            `<span style="color:var(--color-text-muted); font-size:12px;">Upload a new file to replace</span>`;
+          resultCard.style.display = "block";
+          renderLinkedInLinks();
+        }
+      }
+    } catch(e) { /* ignore storage errors */ }
+
+    // ── Drag & drop ──
     dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.style.borderColor = "var(--color-accent)"; dropZone.style.background = "rgba(99,102,241,0.08)"; });
     dropZone.addEventListener("dragleave", () => { dropZone.style.borderColor = ""; dropZone.style.background = ""; });
     dropZone.addEventListener("drop", e => {
@@ -4064,24 +4080,21 @@ Vidhi Chadha
     function handleFile(file) {
       fileNameEl.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = (ev) => {
         try {
-          const wb = XLSX.read(e.target.result, { type: "binary" });
+          const wb = XLSX.read(ev.target.result, { type: "binary" });
           const ws = wb.Sheets[wb.SheetNames[0]];
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-          if (!data || data.length < 2) {
-            showToast("File appears empty or has no data rows.", "error");
-            return;
-          }
+          if (!data || data.length < 2) { showToast("File appears empty or has no data rows.", "error"); return; }
 
           headers = (data[0] || []).map(h => String(h).trim());
           parsedRows = data.slice(1).filter(row => row.some(cell => String(cell).trim() !== ""));
 
-          // Populate column selector — auto-select column whose header looks like "company"
           colSelect.innerHTML = headers.map((h, i) =>
             `<option value="${i}">${h || `Column ${i + 1}`}</option>`
           ).join("");
+          // Auto-pick best column
           const autoIdx = headers.findIndex(h => /company|organisation|organization|name|firm/i.test(h));
           if (autoIdx >= 0) colSelect.value = autoIdx;
 
@@ -4101,12 +4114,10 @@ Vidhi Chadha
 
     function renderPreview() {
       const colIdx = parseInt(colSelect.value, 10);
-      // Show all columns in preview, highlight selected
       previewHead.innerHTML = headers.map((h, i) =>
         `<th style="${i === colIdx ? 'color:var(--color-accent);font-weight:700;' : ''}">${escHtml(h || `Col ${i+1}`)}</th>`
       ).join("");
-      const preview = parsedRows.slice(0, 10);
-      previewBody.innerHTML = preview.map(row =>
+      previewBody.innerHTML = parsedRows.slice(0, 10).map(row =>
         `<tr>${headers.map((_, i) =>
           `<td style="${i === colIdx ? 'color:var(--color-accent);font-weight:600;' : ''}">${escHtml(String(row[i] ?? ""))}</td>`
         ).join("")}</tr>`
@@ -4114,40 +4125,52 @@ Vidhi Chadha
       previewGroup.style.display = "block";
     }
 
-    // ── Import to backend ──
+    // ── Import ──
     importBtn.addEventListener("click", async () => {
       const colIdx = parseInt(colSelect.value, 10);
+      // Deduplicate names before sending
+      const seen = new Set();
       const companies = parsedRows
         .map(row => String(row[colIdx] ?? "").trim())
-        .filter(name => name.length > 1);
+        .filter(name => {
+          if (name.length < 2 || seen.has(name.toLowerCase())) return false;
+          seen.add(name.toLowerCase());
+          return true;
+        });
 
-      if (companies.length === 0) {
-        showToast("No company names found in the selected column.", "error");
-        return;
-      }
+      if (companies.length === 0) { showToast("No company names found in the selected column.", "error"); return; }
 
       importBtn.disabled = true;
       importBtn.textContent = "⏳ Importing...";
-      importStatus.textContent = `Processing ${companies.length} companies...`;
-
-      const payload = companies.map(name => ({ name }));
+      importStatus.textContent = `Sending ${companies.length} companies to portal...`;
 
       try {
         const res = await fetch("/admin/companies/bulk-import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(companies.map(name => ({ name })))
         });
         const result = await res.json();
 
         if (result.success) {
           importedCompanies = result.companies || [];
+
+          // Persist to localStorage so links survive page reload
+          try { localStorage.setItem(LS_KEY, JSON.stringify(importedCompanies)); } catch(e) {}
+
+          const badge = result.added > 0
+            ? `✅ <strong>${result.added}</strong> new companies added`
+            : `✅ <strong>${result.total}</strong> companies confirmed in portal`;
+
           resultSummary.innerHTML =
-            `✅ <strong>${result.added}</strong> new companies added &nbsp;·&nbsp; ` +
-            `<span style="color:var(--color-text-muted)">${result.skipped}</span> already existed &nbsp;·&nbsp; ` +
-            `<strong>${result.total}</strong> total processed`;
+            `${badge} &nbsp;·&nbsp; ` +
+            `<span style="color:var(--color-text-muted)">${result.skipped} already existed</span> &nbsp;·&nbsp; ` +
+            `<strong>${result.total}</strong> total`;
+
           resultCard.style.display = "block";
-          showToast(`Imported ${result.added} companies!`);
+          // Auto-render links immediately — no extra click needed
+          renderLinkedInLinks();
+          showToast(`✅ ${result.total} companies ready — search links generated below ↓`);
           importStatus.textContent = "";
         } else {
           showToast(result.error || "Import failed", "error");
@@ -4162,18 +4185,16 @@ Vidhi Chadha
       }
     });
 
-    // ── Generate per-company LinkedIn search links ──
-    function buildCompanyUrl(companyName, role) {
-      const keywords = encodeURIComponent(`${role} ${companyName}`);
-      return `https://www.linkedin.com/jobs/search/?keywords=${keywords}&location=India&f_TPR=r2592000&sortBy=DD`;
+    // ── Per-company LinkedIn links ──
+    function buildCompanyUrl(name, role) {
+      return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(role + " " + name)}&location=India&f_TPR=r2592000&sortBy=DD`;
     }
 
     function renderLinkedInLinks() {
       const role = (roleInput ? roleInput.value.trim() : "") || "DevOps Engineer";
-      const names = importedCompanies.map(c => c.name);
+      const names = importedCompanies.map(c => c.name).filter(Boolean);
       if (names.length === 0) return;
 
-      // Find or create the links container inside resultCard
       let linksSection = document.getElementById("excelLinksSection");
       if (!linksSection) {
         linksSection = document.createElement("div");
@@ -4183,52 +4204,48 @@ Vidhi Chadha
 
       linksSection.innerHTML = `
         <div style="margin-top: 16px; border-top: 1px solid rgba(99,102,241,0.2); padding-top: 16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
             <span style="font-size:13px; font-weight:600; color:var(--color-text-bright);">
-              🔗 LinkedIn search links — one per company (${names.length} total)
+              🔗 ${names.length} LinkedIn search links — click any to open
             </span>
-            <span style="font-size:11px; color:var(--color-text-muted);">Click any link to open LinkedIn Jobs</span>
+            <span style="font-size:11px; color:var(--color-text-muted);">Sorted A→Z · Opens in new tab</span>
           </div>
-          <div style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
-            ${names.map((name, i) => `
+          <div style="max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 4px;">
+            ${[...names].sort().map((name, i) => `
               <a href="${buildCompanyUrl(name, role)}" target="_blank" rel="noopener"
                  style="display:flex; align-items:center; gap: 10px; padding: 8px 12px; border-radius: 8px;
-                        background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.12);
-                        color: var(--color-accent); text-decoration: none; font-size: 13px;
-                        transition: background 0.15s, border-color 0.15s;"
-                 onmouseover="this.style.background='rgba(99,102,241,0.14)';this.style.borderColor='rgba(99,102,241,0.3)'"
-                 onmouseout="this.style.background='rgba(99,102,241,0.06)';this.style.borderColor='rgba(99,102,241,0.12)'">
-                <span style="color:var(--color-text-muted); font-size:11px; min-width:24px;">${i + 1}.</span>
+                        background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.1);
+                        color: inherit; text-decoration: none; font-size: 13px; transition: background 0.15s;"
+                 onmouseover="this.style.background='rgba(99,102,241,0.13)'; this.style.borderColor='rgba(99,102,241,0.28)'"
+                 onmouseout="this.style.background='rgba(99,102,241,0.05)'; this.style.borderColor='rgba(99,102,241,0.1)'">
+                <span style="color:var(--color-text-muted); font-size:11px; min-width:26px; text-align:right;">${i + 1}.</span>
                 <span style="flex:1; color:var(--color-text-bright); font-weight:500;">${escHtml(name)}</span>
-                <span style="font-size:11px; opacity:0.6;">↗ Search ${escHtml(role)} jobs</span>
+                <span style="font-size:11px; color:var(--color-accent); white-space:nowrap;">↗ Search ${escHtml(role)}</span>
               </a>`).join("")}
           </div>
         </div>`;
     }
 
-    // Re-render links whenever role changes
+    // Re-render links when role changes
     if (roleInput) {
       roleInput.addEventListener("input", () => {
-        if (importedCompanies.length > 0 && resultCard.style.display !== "none") {
-          renderLinkedInLinks();
-        }
+        if (importedCompanies.length > 0 && resultCard.style.display !== "none") renderLinkedInLinks();
       });
     }
 
-    // "Open Targeted LinkedIn Search" → now just renders links (no popup)
     openLinkedinBtn.addEventListener("click", () => {
       if (importedCompanies.length === 0) { showToast("Import companies first.", "error"); return; }
       renderLinkedInLinks();
-      showToast(`${importedCompanies.length} search links generated below ↓`);
+      document.getElementById("excelLinksSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
     copyLinkedinBtn.addEventListener("click", () => {
       if (importedCompanies.length === 0) { showToast("Import companies first.", "error"); return; }
       const role = (roleInput ? roleInput.value.trim() : "") || "DevOps Engineer";
-      const allUrls = importedCompanies.map(c => `${c.name}: ${buildCompanyUrl(c.name, role)}`).join("\n");
-      navigator.clipboard.writeText(allUrls)
-        .then(() => showToast("All search URLs copied to clipboard!"))
-        .catch(() => showToast("Failed to copy.", "error"));
+      const text = importedCompanies.map(c => `${c.name}\t${buildCompanyUrl(c.name, role)}`).join("\n");
+      navigator.clipboard.writeText(text)
+        .then(() => showToast(`Copied ${importedCompanies.length} search URLs to clipboard!`))
+        .catch(() => showToast("Copy failed — try selecting text manually.", "error"));
     });
   })();
 
@@ -4258,3 +4275,4 @@ Vidhi Chadha
     checkGmailQuotaStatus();
   }, 5000);
 });
+
