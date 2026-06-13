@@ -1,25 +1,46 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { env } from "../config/env.js";
 import { prisma } from "../lib/prisma.js";
 import { getIsEnvTokenExpired, setIsEnvTokenExpired } from "../services/gmailService.js";
 
+/**
+ * Computes the OAuth redirect URI.
+ * Priority: GOOGLE_REDIRECT_URI env var > dynamic detection from request headers.
+ * The dynamic fallback sanitises x-forwarded-proto which Vercel sends as "https,https".
+ */
+function getRedirectUri(request: FastifyRequest): string {
+  if (env.GOOGLE_REDIRECT_URI) {
+    return env.GOOGLE_REDIRECT_URI;
+  }
+  const host = request.headers.host || "localhost:4000";
+  const proto = (request.headers["x-forwarded-proto"] as string || "http").split(",")[0].trim();
+  return `${proto}://${host}/auth/google/callback`;
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
+
+  // Diagnostic route — shows the exact redirect_uri that would be sent to Google
+  // Visit this to verify before triggering OAuth: /auth/google/debug
+  app.get("/auth/google/debug", async (request, reply) => {
+    const redirectUri = getRedirectUri(request);
+    return reply.send({
+      redirectUri,
+      source: env.GOOGLE_REDIRECT_URI ? "GOOGLE_REDIRECT_URI env var" : "dynamic (host header)",
+      host: request.headers.host,
+      xForwardedProto: request.headers["x-forwarded-proto"],
+      googleRedirectUriEnv: env.GOOGLE_REDIRECT_URI || "(not set)"
+    });
+  });
+
   // Initiates Google OAuth consent screen redirect
   app.get("/auth/google", async (request, reply) => {
-    const { GMAIL_CLIENT_ID, GOOGLE_REDIRECT_URI } = env;
+    const { GMAIL_CLIENT_ID } = env;
 
     if (!GMAIL_CLIENT_ID) {
       return reply.status(400).send("GMAIL_CLIENT_ID is not configured in environment variables.");
     }
 
-    // Prefer explicit env var (most reliable); fall back to dynamic construction
-    let redirectUri = GOOGLE_REDIRECT_URI;
-    if (!redirectUri) {
-      const host = request.headers.host || "localhost:4000";
-      // x-forwarded-proto may be "https,https" on Vercel — take only the first value
-      const proto = (request.headers["x-forwarded-proto"] as string || "http").split(",")[0].trim();
-      redirectUri = `${proto}://${host}/auth/google/callback`;
-    }
+    const redirectUri = getRedirectUri(request);
 
     const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
     const options = {
@@ -46,19 +67,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return reply.status(400).send("No authorization code provided by Google.");
     }
 
-    const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = env;
+    const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET } = env;
 
     if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET) {
       return reply.status(400).send("Gmail OAuth client ID or client secret is not configured.");
     }
 
     // Must match exactly what was sent in the /auth/google initiation request
-    let redirectUri = GOOGLE_REDIRECT_URI;
-    if (!redirectUri) {
-      const host = request.headers.host || "localhost:4000";
-      const proto = (request.headers["x-forwarded-proto"] as string || "http").split(",")[0].trim();
-      redirectUri = `${proto}://${host}/auth/google/callback`;
-    }
+    const redirectUri = getRedirectUri(request);
 
     try {
       const response = await fetch("https://oauth2.googleapis.com/token", {
