@@ -3689,7 +3689,7 @@ Vidhi Chadha
       backupsListBodyEl.innerHTML = `
         <tr>
           <td colspan="4" class="text-center py-4" style="color: var(--color-text-muted); text-align: center; padding: 24px;">
-            🗄️ No snapshots found in the backups/ directory.
+            🗄️ No backups found. Click "Create Backup Snapshot" to create your first one.
           </td>
         </tr>`;
       return;
@@ -3702,12 +3702,41 @@ Vidhi Chadha
           <td style="font-family: monospace; font-size: 13px; color: var(--color-text-bright);">${escHtml(b.filename)}</td>
           <td>${dateStr}</td>
           <td>${formatBytes(b.size)}</td>
-          <td class="actions-cell">
-            <button class="btn btn-outline btn-compact btn-restore" data-file="${escHtml(b.filename)}" type="button" style="margin-right: 8px;">🔄 Restore</button>
+          <td class="actions-cell" style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-outline btn-compact btn-download-backup" data-file="${escHtml(b.filename)}" type="button">⬇️ Download</button>
+            <button class="btn btn-outline btn-compact btn-restore" data-file="${escHtml(b.filename)}" type="button">🔄 Restore</button>
             <button class="btn btn-outline btn-compact btn-delete-backup" data-file="${escHtml(b.filename)}" type="button" style="border-color: rgba(239, 68, 68, 0.25); color: #f87171;">🗑️ Delete</button>
           </td>
         </tr>`;
     }).join("");
+
+    // Bind Download buttons
+    backupsListBodyEl.querySelectorAll(".btn-download-backup").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const filename = btn.getAttribute("data-file");
+        try {
+          btn.disabled = true;
+          btn.textContent = "⏳ Downloading...";
+          const res = await fetch(`/admin/backup/${encodeURIComponent(filename)}/download`);
+          if (!res.ok) throw new Error("Download failed");
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast(`Downloaded: ${filename}`);
+        } catch (e) {
+          showToast("Download failed: " + e.message, "error");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "⬇️ Download";
+        }
+      });
+    });
 
     // Bind Restore buttons
     backupsListBodyEl.querySelectorAll(".btn-restore").forEach(btn => {
@@ -3721,7 +3750,7 @@ Vidhi Chadha
     backupsListBodyEl.querySelectorAll(".btn-delete-backup").forEach(btn => {
       btn.addEventListener("click", async () => {
         const filename = btn.getAttribute("data-file");
-        const confirmed = await showConfirm(`Are you sure you want to permanently delete the snapshot file "${filename}"?`);
+        const confirmed = await showConfirm(`Are you sure you want to permanently delete the snapshot "${filename}"?`);
         if (!confirmed) return;
 
         try {
@@ -3759,24 +3788,33 @@ Vidhi Chadha
   if (btnCreateBackupEl) {
     btnCreateBackupEl.addEventListener("click", async () => {
       btnCreateBackupEl.disabled = true;
-      btnCreateBackupEl.textContent = "Creating Snapshot...";
+      btnCreateBackupEl.textContent = "⏳ Creating Snapshot...";
       try {
         const res = await fetch("/admin/backup", { method: "POST" });
         const result = await res.json();
         if (result.success) {
-          showToast(`Snapshot created: ${result.filename}`);
+          showToast(`✅ Snapshot created: ${result.filename} (${formatBytes(result.size)})`);
           await fetchBackups();
         } else {
           showToast(result.message || "Failed to create snapshot", "error");
         }
       } catch (e) {
-        showToast("Server error creating snapshot.", "error");
+        showToast("Server error creating snapshot: " + e.message, "error");
       } finally {
         btnCreateBackupEl.disabled = false;
         btnCreateBackupEl.textContent = "Create Backup Snapshot";
       }
     });
   }
+
+  // Auto-fetch backups whenever the Backup tab is activated
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("data-tab") === "tab-backup") {
+        fetchBackups();
+      }
+    });
+  });
 
   if (restoreFormEl) {
     restoreFormEl.addEventListener("submit", async (e) => {
