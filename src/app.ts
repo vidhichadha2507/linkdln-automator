@@ -25,10 +25,29 @@ export async function buildApp() {
     origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN
   });
 
-  await app.register(fastifyStatic, {
-    root: publicDir,
-    prefix: "/"
-  });
+  // Serve static files from memory to ensure zero-stream compatibility with serverless environments
+  const fsPromises = await import("node:fs/promises");
+  const staticFiles = [
+    { route: "/", file: "index.html", type: "text/html; charset=utf-8" },
+    { route: "/index.html", file: "index.html", type: "text/html; charset=utf-8" },
+    { route: "/admin.html", file: "admin.html", type: "text/html; charset=utf-8" },
+    { route: "/admin.css", file: "admin.css", type: "text/css; charset=utf-8" },
+    { route: "/admin.js", file: "admin.js", type: "application/javascript; charset=utf-8" },
+    { route: "/app.js", file: "app.js", type: "application/javascript; charset=utf-8" },
+    { route: "/Vidhi_chadha_resume.pdf", file: "Vidhi_chadha_resume.pdf", type: "application/pdf" }
+  ];
+
+  for (const item of staticFiles) {
+    try {
+      const filePath = path.join(publicDir, item.file);
+      const content = await fsPromises.readFile(filePath);
+      app.get(item.route, async (request, reply) => {
+        return reply.type(item.type).send(content);
+      });
+    } catch (err: any) {
+      app.log.error(err, `⚠️ Failed to load static file ${item.file}`);
+    }
+  }
 
   await registerHealthRoutes(app);
   await registerLeadRoutes(app);

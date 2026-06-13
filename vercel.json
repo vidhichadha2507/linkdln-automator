@@ -2,71 +2,7 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/health",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/leads/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/suppressions/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/webhooks/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/auth/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/default-resume",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/settings",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/summary",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/companies",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/leads/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/events",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/gmail/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/applications",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/applications/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/admin/campaigns",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/job-search/:path*",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/:path*",
+      "source": "/(.*)",
       "destination": "/api/index"
     }
   ],
