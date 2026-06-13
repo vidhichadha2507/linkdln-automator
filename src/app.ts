@@ -9,8 +9,9 @@ import { registerHealthRoutes } from "./routes/health.js";
 import { registerLeadRoutes } from "./routes/leads.js";
 import { registerSuppressionRoutes } from "./routes/suppressions.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
-import { startCampaignScheduler } from "./services/campaignService.js";
+import { startCampaignScheduler, processCampaignQueue } from "./services/campaignService.js";
 import { registerJobSearchRoutes } from "./routes/jobSearch.js";
+import { pollGmailBounces } from "./services/gmailService.js";
 
 const publicDir = path.resolve(process.cwd(), "src/public");
 
@@ -37,8 +38,29 @@ export async function buildApp() {
   await registerAdminRoutes(app);
   await registerJobSearchRoutes(app);
 
-  // Boot automated queue scheduler tick
-  startCampaignScheduler();
+  // Manual tick route for campaign processing (suitable for serverless environments like Vercel)
+  app.post("/api/campaigns/tick", async (request, reply) => {
+    try {
+      const bounceResult = await pollGmailBounces();
+      const queueResult = await processCampaignQueue();
+      return {
+        success: true,
+        bounceResult,
+        queueResult
+      };
+    } catch (err: any) {
+      request.log.error(err);
+      return reply.status(500).send({
+        error: "Failed to process campaign queue tick",
+        message: err.message
+      });
+    }
+  });
+
+  // Boot automated queue scheduler tick (only if not running in a serverless environment like Vercel)
+  if (!process.env.VERCEL) {
+    startCampaignScheduler();
+  }
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);
