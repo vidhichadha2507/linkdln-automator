@@ -4162,32 +4162,72 @@ Vidhi Chadha
       }
     });
 
-    // ── Generate targeted LinkedIn search URL ──
-    function buildLinkedInUrl() {
-      const role = (roleInput.value || "DevOps Engineer").trim();
-      const companyNames = importedCompanies.map(c => c.name);
-      if (companyNames.length === 0) return null;
-
-      // LinkedIn Jobs search: keywords = role, geoId for India, company filter as text
-      // We build a broad search: "DevOps Engineer" with each company as a keyword phrase
-      // LinkedIn doesn't support OR across companies in URL easily, so we use the
-      // f_C company filter (requires company IDs) — instead we use keyword search with quotes
-      const companiesQuery = companyNames.slice(0, 20).map(n => `"${n}"`).join(" OR ");
-      const keywords = encodeURIComponent(`${role} ${companiesQuery}`);
-      return `https://www.linkedin.com/jobs/search/?keywords=${keywords}&location=India&f_TPR=r2592000`;
+    // ── Generate per-company LinkedIn search links ──
+    function buildCompanyUrl(companyName, role) {
+      const keywords = encodeURIComponent(`${role} ${companyName}`);
+      return `https://www.linkedin.com/jobs/search/?keywords=${keywords}&location=India&f_TPR=r2592000&sortBy=DD`;
     }
 
+    function renderLinkedInLinks() {
+      const role = (roleInput ? roleInput.value.trim() : "") || "DevOps Engineer";
+      const names = importedCompanies.map(c => c.name);
+      if (names.length === 0) return;
+
+      // Find or create the links container inside resultCard
+      let linksSection = document.getElementById("excelLinksSection");
+      if (!linksSection) {
+        linksSection = document.createElement("div");
+        linksSection.id = "excelLinksSection";
+        resultCard.appendChild(linksSection);
+      }
+
+      linksSection.innerHTML = `
+        <div style="margin-top: 16px; border-top: 1px solid rgba(99,102,241,0.2); padding-top: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+            <span style="font-size:13px; font-weight:600; color:var(--color-text-bright);">
+              🔗 LinkedIn search links — one per company (${names.length} total)
+            </span>
+            <span style="font-size:11px; color:var(--color-text-muted);">Click any link to open LinkedIn Jobs</span>
+          </div>
+          <div style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+            ${names.map((name, i) => `
+              <a href="${buildCompanyUrl(name, role)}" target="_blank" rel="noopener"
+                 style="display:flex; align-items:center; gap: 10px; padding: 8px 12px; border-radius: 8px;
+                        background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.12);
+                        color: var(--color-accent); text-decoration: none; font-size: 13px;
+                        transition: background 0.15s, border-color 0.15s;"
+                 onmouseover="this.style.background='rgba(99,102,241,0.14)';this.style.borderColor='rgba(99,102,241,0.3)'"
+                 onmouseout="this.style.background='rgba(99,102,241,0.06)';this.style.borderColor='rgba(99,102,241,0.12)'">
+                <span style="color:var(--color-text-muted); font-size:11px; min-width:24px;">${i + 1}.</span>
+                <span style="flex:1; color:var(--color-text-bright); font-weight:500;">${escHtml(name)}</span>
+                <span style="font-size:11px; opacity:0.6;">↗ Search ${escHtml(role)} jobs</span>
+              </a>`).join("")}
+          </div>
+        </div>`;
+    }
+
+    // Re-render links whenever role changes
+    if (roleInput) {
+      roleInput.addEventListener("input", () => {
+        if (importedCompanies.length > 0 && resultCard.style.display !== "none") {
+          renderLinkedInLinks();
+        }
+      });
+    }
+
+    // "Open Targeted LinkedIn Search" → now just renders links (no popup)
     openLinkedinBtn.addEventListener("click", () => {
-      const url = buildLinkedInUrl();
-      if (url) window.open(url, "_blank");
-      else showToast("Import companies first.", "error");
+      if (importedCompanies.length === 0) { showToast("Import companies first.", "error"); return; }
+      renderLinkedInLinks();
+      showToast(`${importedCompanies.length} search links generated below ↓`);
     });
 
     copyLinkedinBtn.addEventListener("click", () => {
-      const url = buildLinkedInUrl();
-      if (!url) { showToast("Import companies first.", "error"); return; }
-      navigator.clipboard.writeText(url)
-        .then(() => showToast("LinkedIn URL copied!"))
+      if (importedCompanies.length === 0) { showToast("Import companies first.", "error"); return; }
+      const role = (roleInput ? roleInput.value.trim() : "") || "DevOps Engineer";
+      const allUrls = importedCompanies.map(c => `${c.name}: ${buildCompanyUrl(c.name, role)}`).join("\n");
+      navigator.clipboard.writeText(allUrls)
+        .then(() => showToast("All search URLs copied to clipboard!"))
         .catch(() => showToast("Failed to copy.", "error"));
     });
   })();
