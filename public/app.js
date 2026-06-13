@@ -4019,6 +4019,179 @@ Vidhi Chadha
     jobSearchSettingsForm.addEventListener("submit", saveSettings);
   }
 
+  // ─── EXCEL COMPANY IMPORT CONTROLLER ─────────────────────────────────────
+
+  (function initExcelImport() {
+    const dropZone        = document.getElementById("excelDropZone");
+    const browseBtn       = document.getElementById("excelBrowseBtn");
+    const fileInput       = document.getElementById("excelFileInput");
+    const fileNameEl      = document.getElementById("excelFileName");
+    const colSelectorGrp  = document.getElementById("excelColumnSelectorGroup");
+    const colSelect       = document.getElementById("excelColumnSelect");
+    const rowCountEl      = document.getElementById("excelRowCount");
+    const previewGroup    = document.getElementById("excelPreviewGroup");
+    const previewHead     = document.getElementById("excelPreviewHead");
+    const previewBody     = document.getElementById("excelPreviewBody");
+    const importActions   = document.getElementById("excelImportActions");
+    const importBtn       = document.getElementById("excelImportBtn");
+    const importStatus    = document.getElementById("excelImportStatus");
+    const resultCard      = document.getElementById("excelResultCard");
+    const resultSummary   = document.getElementById("excelResultSummary");
+    const roleInput       = document.getElementById("excelRoleInput");
+    const openLinkedinBtn = document.getElementById("excelOpenLinkedinBtn");
+    const copyLinkedinBtn = document.getElementById("excelCopyLinkedinBtn");
+
+    if (!dropZone) return; // tab not in DOM
+
+    let parsedRows = [];    // all data rows from the sheet
+    let headers    = [];    // column header names
+    let importedCompanies = []; // result from backend
+
+    // ── Drag & drop styling ──
+    dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.style.borderColor = "var(--color-accent)"; dropZone.style.background = "rgba(99,102,241,0.08)"; });
+    dropZone.addEventListener("dragleave", () => { dropZone.style.borderColor = ""; dropZone.style.background = ""; });
+    dropZone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropZone.style.borderColor = ""; dropZone.style.background = "";
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    browseBtn.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("click", e => { if (e.target !== browseBtn) fileInput.click(); });
+    fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+    function handleFile(file) {
+      fileNameEl.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: "binary" });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+          if (!data || data.length < 2) {
+            showToast("File appears empty or has no data rows.", "error");
+            return;
+          }
+
+          headers = (data[0] || []).map(h => String(h).trim());
+          parsedRows = data.slice(1).filter(row => row.some(cell => String(cell).trim() !== ""));
+
+          // Populate column selector — auto-select column whose header looks like "company"
+          colSelect.innerHTML = headers.map((h, i) =>
+            `<option value="${i}">${h || `Column ${i + 1}`}</option>`
+          ).join("");
+          const autoIdx = headers.findIndex(h => /company|organisation|organization|name|firm/i.test(h));
+          if (autoIdx >= 0) colSelect.value = autoIdx;
+
+          rowCountEl.textContent = `${parsedRows.length} data rows detected`;
+          colSelectorGrp.style.display = "block";
+          renderPreview();
+          importActions.style.display = "flex";
+          resultCard.style.display = "none";
+        } catch (err) {
+          showToast("Failed to parse file: " + err.message, "error");
+        }
+      };
+      reader.readAsBinaryString(file);
+    }
+
+    colSelect.addEventListener("change", renderPreview);
+
+    function renderPreview() {
+      const colIdx = parseInt(colSelect.value, 10);
+      // Show all columns in preview, highlight selected
+      previewHead.innerHTML = headers.map((h, i) =>
+        `<th style="${i === colIdx ? 'color:var(--color-accent);font-weight:700;' : ''}">${escHtml(h || `Col ${i+1}`)}</th>`
+      ).join("");
+      const preview = parsedRows.slice(0, 10);
+      previewBody.innerHTML = preview.map(row =>
+        `<tr>${headers.map((_, i) =>
+          `<td style="${i === colIdx ? 'color:var(--color-accent);font-weight:600;' : ''}">${escHtml(String(row[i] ?? ""))}</td>`
+        ).join("")}</tr>`
+      ).join("");
+      previewGroup.style.display = "block";
+    }
+
+    // ── Import to backend ──
+    importBtn.addEventListener("click", async () => {
+      const colIdx = parseInt(colSelect.value, 10);
+      const companies = parsedRows
+        .map(row => String(row[colIdx] ?? "").trim())
+        .filter(name => name.length > 1);
+
+      if (companies.length === 0) {
+        showToast("No company names found in the selected column.", "error");
+        return;
+      }
+
+      importBtn.disabled = true;
+      importBtn.textContent = "⏳ Importing...";
+      importStatus.textContent = `Processing ${companies.length} companies...`;
+
+      const payload = companies.map(name => ({ name }));
+
+      try {
+        const res = await fetch("/admin/companies/bulk-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          importedCompanies = result.companies || [];
+          resultSummary.innerHTML =
+            `✅ <strong>${result.added}</strong> new companies added &nbsp;·&nbsp; ` +
+            `<span style="color:var(--color-text-muted)">${result.skipped}</span> already existed &nbsp;·&nbsp; ` +
+            `<strong>${result.total}</strong> total processed`;
+          resultCard.style.display = "block";
+          showToast(`Imported ${result.added} companies!`);
+          importStatus.textContent = "";
+        } else {
+          showToast(result.error || "Import failed", "error");
+          importStatus.textContent = "";
+        }
+      } catch (err) {
+        showToast("Server error: " + err.message, "error");
+        importStatus.textContent = "";
+      } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = "🚀 Import Companies to Portal";
+      }
+    });
+
+    // ── Generate targeted LinkedIn search URL ──
+    function buildLinkedInUrl() {
+      const role = (roleInput.value || "DevOps Engineer").trim();
+      const companyNames = importedCompanies.map(c => c.name);
+      if (companyNames.length === 0) return null;
+
+      // LinkedIn Jobs search: keywords = role, geoId for India, company filter as text
+      // We build a broad search: "DevOps Engineer" with each company as a keyword phrase
+      // LinkedIn doesn't support OR across companies in URL easily, so we use the
+      // f_C company filter (requires company IDs) — instead we use keyword search with quotes
+      const companiesQuery = companyNames.slice(0, 20).map(n => `"${n}"`).join(" OR ");
+      const keywords = encodeURIComponent(`${role} ${companiesQuery}`);
+      return `https://www.linkedin.com/jobs/search/?keywords=${keywords}&location=India&f_TPR=r2592000`;
+    }
+
+    openLinkedinBtn.addEventListener("click", () => {
+      const url = buildLinkedInUrl();
+      if (url) window.open(url, "_blank");
+      else showToast("Import companies first.", "error");
+    });
+
+    copyLinkedinBtn.addEventListener("click", () => {
+      const url = buildLinkedInUrl();
+      if (!url) { showToast("Import companies first.", "error"); return; }
+      navigator.clipboard.writeText(url)
+        .then(() => showToast("LinkedIn URL copied!"))
+        .catch(() => showToast("Failed to copy.", "error"));
+    });
+  })();
+
   // ─────────────────────────────────────────────────────────────────────────
 
   // Initial Bootup

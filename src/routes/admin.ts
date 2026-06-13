@@ -58,6 +58,72 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     }
   });
 
+  // ─── COMPANY BULK IMPORT ──────────────────────────────────────────────────
+
+  app.post("/admin/companies/bulk-import", async (request, reply) => {
+    const bodySchema = z.array(z.object({
+      name: z.string().trim().min(1),
+      location: z.string().trim().optional(),
+      industry: z.string().trim().optional(),
+      website: z.string().trim().optional()
+    }));
+
+    const parsed = bodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ success: false, error: "Invalid payload", details: parsed.error.issues });
+    }
+
+    let added = 0;
+    let skipped = 0;
+    const importedCompanies: { id: string; name: string; normalizedName: string; location?: string }[] = [];
+
+    for (const row of parsed.data) {
+      try {
+        const cleaned = cleanCompanyName(row.name);
+        const normalized = normalizeCompanyName(row.name);
+        if (!cleaned || !normalized) { skipped++; continue; }
+
+        const existing = await prisma.company.findUnique({ where: { normalizedName: normalized } });
+        if (existing) {
+          importedCompanies.push({ id: existing.id, name: existing.name, normalizedName: existing.normalizedName, location: row.location });
+          skipped++;
+          continue;
+        }
+
+        const company = await prisma.company.create({
+          data: { name: cleaned, normalizedName: normalized }
+        });
+
+        // Trigger AI company research asynchronously
+        (async () => {
+          try {
+            await syncCompanyResearch(company.id, company.name, undefined);
+          } catch (err: any) {
+            console.error(`⚠️ Company research failed for "${company.name}":`, err.message || err);
+          }
+        })();
+
+        importedCompanies.push({ id: company.id, name: company.name, normalizedName: company.normalizedName, location: row.location });
+        added++;
+      } catch (err: any) {
+        console.error(`Failed to import company "${row.name}":`, err.message || err);
+        skipped++;
+      }
+    }
+
+    return { success: true, added, skipped, total: parsed.data.length, companies: importedCompanies };
+  });
+
+  // Return all companies (used to build targeted LinkedIn search URLs)
+  app.get("/admin/companies", async () => {
+    const companies = await prisma.company.findMany({
+      select: { id: true, name: true, normalizedName: true, domain: true, createdAt: true },
+      orderBy: { createdAt: "desc" }
+    });
+    return companies;
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   app.get("/admin/summary", async () => {
     const [

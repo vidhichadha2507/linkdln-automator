@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <!-- Application Stylesheet -->
     <link rel="stylesheet" href="/admin.css?v=10" />
+    <!-- SheetJS: in-browser Excel/CSV parser for company import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
     <div class="app-container">
@@ -549,7 +551,80 @@
                   </div>
                 </div>
 
-                <form id="jobSearchSettingsForm" class="margin-top-24">
+                 <!-- ═══ EXCEL COMPANY IMPORT PANEL ═══════════════════════════════ -->
+                 <div class="settings-card margin-top-24" id="companyImportCard">
+                   <div class="settings-card-header">
+                     <span class="settings-card-icon">📊</span>
+                     <h3>Import Companies from Excel / CSV</h3>
+                   </div>
+                   <div class="settings-card-body">
+                     <p class="helper-text" style="margin-bottom: 16px;">
+                       Upload your Excel sheet (.xlsx, .xls) or CSV with company names. The portal will parse it, import all companies, and generate a targeted LinkedIn search URL to find openings for your role at those companies.
+                     </p>
+
+                     <!-- Step 1: File picker -->
+                     <div class="form-group">
+                       <label style="font-weight: 600; color: var(--color-text-bright); font-size: 13px;">Step 1 — Choose File</label>
+                       <div id="excelDropZone" style="border: 2px dashed var(--border-color); border-radius: 12px; padding: 28px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-top: 8px; background: rgba(99,102,241,0.03);">
+                         <div style="font-size: 32px; margin-bottom: 8px;">📂</div>
+                         <p style="color: var(--color-text-bright); font-weight: 500; margin: 0 0 4px;">Drop your Excel / CSV file here</p>
+                         <p style="color: var(--color-text-muted); font-size: 12px; margin: 0 0 12px;">Supports .xlsx, .xls, .csv</p>
+                         <button type="button" id="excelBrowseBtn" class="btn btn-outline btn-compact">Browse File</button>
+                         <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;" />
+                       </div>
+                       <p id="excelFileName" style="margin-top: 8px; font-size: 12px; color: var(--color-text-muted);"></p>
+                     </div>
+
+                     <!-- Step 2: Column selector (shown after file parse) -->
+                     <div id="excelColumnSelectorGroup" class="form-group margin-top-16" style="display:none;">
+                       <label style="font-weight: 600; color: var(--color-text-bright); font-size: 13px;">Step 2 — Select Company Name Column</label>
+                       <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
+                         <select id="excelColumnSelect" class="select-field" style="min-width: 220px;"></select>
+                         <span id="excelRowCount" style="font-size: 12px; color: var(--color-text-muted);"></span>
+                       </div>
+                     </div>
+
+                     <!-- Step 3: Preview table -->
+                     <div id="excelPreviewGroup" style="display:none; margin-top: 16px;">
+                       <label style="font-weight: 600; color: var(--color-text-bright); font-size: 13px;">Step 3 — Preview (first 10 rows)</label>
+                       <div class="table-wrapper" style="margin-top: 8px; max-height: 260px; overflow-y: auto;">
+                         <table class="data-table" id="excelPreviewTable">
+                           <thead><tr id="excelPreviewHead"></tr></thead>
+                           <tbody id="excelPreviewBody"></tbody>
+                         </table>
+                       </div>
+                     </div>
+
+                     <!-- Import action -->
+                     <div id="excelImportActions" style="display:none; margin-top: 20px; display: none; gap: 12px; align-items: center; flex-wrap: wrap;">
+                       <button type="button" id="excelImportBtn" class="btn btn-accent">
+                         🚀 Import Companies to Portal
+                       </button>
+                       <span id="excelImportStatus" style="font-size: 13px; color: var(--color-text-muted);"></span>
+                     </div>
+
+                     <!-- Results + Targeted Search -->
+                     <div id="excelResultCard" style="display:none; margin-top: 20px; padding: 16px; border-radius: 12px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2);">
+                       <div id="excelResultSummary" style="font-size: 14px; font-weight: 600; color: var(--color-text-bright); margin-bottom: 12px;"></div>
+                       <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                         <div style="flex: 1; min-width: 260px;">
+                           <label style="font-size: 12px; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Your Role / Job Title</label>
+                           <input type="text" id="excelRoleInput" class="input-field" placeholder="e.g. DevOps Engineer" value="DevOps Engineer" />
+                         </div>
+                         <button type="button" id="excelOpenLinkedinBtn" class="btn btn-accent" style="margin-top: 20px;">
+                           🔗 Open Targeted LinkedIn Search
+                         </button>
+                         <button type="button" id="excelCopyLinkedinBtn" class="btn btn-outline" style="margin-top: 20px;">
+                           📋 Copy URL
+                         </button>
+                       </div>
+                       <p class="helper-text" style="margin-top: 8px;">Opens a LinkedIn Jobs search filtered to your imported companies + role. The extension will automatically harvest the results.</p>
+                     </div>
+                   </div>
+                 </div>
+                 <!-- ═══════════════════════════════════════════════════════════════ -->
+
+                 <form id="jobSearchSettingsForm" class="margin-top-24">
                   <div style="max-width: 1000px;">
                     <!-- LinkedIn Job Search Automator Card -->
                     <div class="settings-card" style="margin-top: 0;">
