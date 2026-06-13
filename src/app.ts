@@ -15,10 +15,20 @@ import { pollGmailBounces } from "./services/gmailService.js";
 
 const publicDir = path.resolve(process.cwd(), "public");
 
+// Keep track of recent request URLs for serverless routing diagnostics
+export const recentUrls: string[] = [];
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
     disableRequestLogging: true
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
+    recentUrls.push(`${request.method} ${request.url} (Headers: ${JSON.stringify(request.headers)})`);
+    if (recentUrls.length > 30) {
+      recentUrls.shift();
+    }
   });
 
   await app.register(cors, {

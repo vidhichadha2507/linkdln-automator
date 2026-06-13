@@ -35,7 +35,8 @@ export async function registerHealthRoutes(app: FastifyInstance) {
         cwdFiles,
         cwdError,
         publicFiles,
-        publicError
+        publicError,
+        recentUrls: (await import("../app.js")).recentUrls
       }
     };
   });
