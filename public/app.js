@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editingTemplateId: null,
     editingApplicationId: null,
     lastFocusedTemplateField: null,
+    isAutoTicking: false,
     selectedLeadId: null,
     bulkCompanyId: null,
     bulkTag: null,
@@ -243,7 +244,37 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchQueue() {
     try {
       const res = await fetch("/admin/queue");
-      state.queue = await res.json();
+      const queueData = await res.json();
+      state.queue = queueData;
+
+      // Auto-tick check: If any active/scheduled campaign has scheduledFor in the past, trigger a background processing request
+      const now = new Date();
+      const needsTick = queueData.some(c => 
+        !["completed", "bounced", "replied", "draft", "cancelled"].includes(c.status) &&
+        c.scheduledFor && 
+        new Date(c.scheduledFor) <= now &&
+        !c.isPaused
+      );
+
+      if (needsTick && !state.isAutoTicking) {
+        state.isAutoTicking = true;
+        console.log("⏰ [Auto-Tick Fallback] Found overdue campaigns in outbox. Triggering background processing tick...");
+        fetch("/admin/campaigns/process-queue", { method: "POST" })
+          .then(async r => {
+            const result = await r.json();
+            console.log("⏰ [Auto-Tick Fallback] Completed background process:", result);
+            // Re-fetch queue to update UI state
+            const freshQueueRes = await fetch("/admin/queue");
+            state.queue = await freshQueueRes.json();
+            renderQueueTable();
+            // Also refresh leads to update campaign status badges
+            fetchLeads().then(renderLeadsTable);
+          })
+          .catch(err => console.error("⏰ [Auto-Tick Fallback] Failed to process queue:", err))
+          .finally(() => {
+            state.isAutoTicking = false;
+          });
+      }
     } catch (e) {
       console.error("Failed to fetch campaign queue:", e);
     }
@@ -3895,6 +3926,7 @@ Vidhi Chadha
       const settingsJobSearchKeywords = document.getElementById("settingsJobSearchKeywords");
       const settingsJobSearchInterval = document.getElementById("settingsJobSearchInterval");
       const settingsJobSearchTimeRange = document.getElementById("settingsJobSearchTimeRange");
+      const settingsTimezone = document.getElementById("settingsTimezone");
 
       if (settingsRespectTiming) {
         settingsRespectTiming.checked = settings.respectTiming || false;
@@ -3917,6 +3949,7 @@ Vidhi Chadha
       if (settingsTimingEndHour) settingsTimingEndHour.value = settings.timingEndHour !== undefined ? settings.timingEndHour : 17;
       if (settingsFollowupInterval) settingsFollowupInterval.value = settings.followupIntervalMinutes || 70;
       if (settingsMaxFollowups) settingsMaxFollowups.value = settings.maxFollowups !== undefined ? settings.maxFollowups : 3;
+      if (settingsTimezone) settingsTimezone.value = settings.timezone || "Asia/Kolkata";
       if (settingsDefaultResumeLink) settingsDefaultResumeLink.value = settings.defaultResumeLink || "";
       if (settingsVerifierProvider) settingsVerifierProvider.value = settings.emailVerifierProvider || "local";
       if (settingsEnableAiPattern) settingsEnableAiPattern.checked = settings.enableAiPatternDiscovery || false;
@@ -3968,6 +4001,7 @@ Vidhi Chadha
     const settingsJobSearchKeywords = document.getElementById("settingsJobSearchKeywords");
     const settingsJobSearchInterval = document.getElementById("settingsJobSearchInterval");
     const settingsJobSearchTimeRange = document.getElementById("settingsJobSearchTimeRange");
+    const settingsTimezone = document.getElementById("settingsTimezone");
     const settingsStatusText = document.getElementById("settingsStatusText");
     const jobSearchSettingsStatusText = document.getElementById("jobSearchSettingsStatusText");
 
@@ -3978,6 +4012,7 @@ Vidhi Chadha
       timingEndHour: settingsTimingEndHour ? parseInt(settingsTimingEndHour.value, 10) : 17,
       followupIntervalMinutes: settingsFollowupInterval ? parseInt(settingsFollowupInterval.value, 10) : 70,
       maxFollowups: settingsMaxFollowups ? parseInt(settingsMaxFollowups.value, 10) : 3,
+      timezone: settingsTimezone ? settingsTimezone.value : "Asia/Kolkata",
       defaultResumeLink: settingsDefaultResumeLink ? settingsDefaultResumeLink.value : "",
       emailVerifierProvider: settingsVerifierProvider ? settingsVerifierProvider.value : "local",
       enableAiPatternDiscovery: settingsEnableAiPattern ? settingsEnableAiPattern.checked : false,

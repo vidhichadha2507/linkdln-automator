@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import fs from "node:fs/promises";
 
 // Mock the Prisma Client
 vi.mock("../lib/prisma.js", () => {
@@ -16,22 +15,8 @@ vi.mock("../lib/prisma.js", () => {
       googleCredentials: { findMany: vi.fn(), createMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
       application: { findMany: vi.fn(), createMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
       template: { findMany: vi.fn(), createMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+      systemSetting: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
       $transaction: vi.fn((actions) => Promise.all(actions))
-    }
-  };
-});
-
-// Mock fs/promises
-vi.mock("node:fs/promises", () => {
-  return {
-    default: {
-      mkdir: vi.fn(),
-      writeFile: vi.fn(),
-      readFile: vi.fn(),
-      readdir: vi.fn(),
-      stat: vi.fn(),
-      unlink: vi.fn(),
-      access: vi.fn()
     }
   };
 });
@@ -45,35 +30,30 @@ describe("backupService", () => {
   });
 
   describe("createBackupSnapshot", () => {
-    it("queries all tables and writes a backup snapshot file", async () => {
+    it("queries all tables and writes a backup snapshot to the database", async () => {
       vi.mocked(prisma.company.findMany).mockResolvedValue([{ id: "comp_1", name: "Zeta" }] as any);
       vi.mocked(prisma.lead.findMany).mockResolvedValue([{ id: "lead_1", fullName: "Chandan Kumar" }] as any);
-      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+      vi.mocked(prisma.systemSetting.upsert).mockResolvedValue({} as any);
 
       const result = await createBackupSnapshot();
 
       expect(prisma.company.findMany).toHaveBeenCalled();
       expect(prisma.lead.findMany).toHaveBeenCalled();
-      expect(fs.mkdir).toHaveBeenCalled();
-      expect(fs.writeFile).toHaveBeenCalled();
+      expect(prisma.systemSetting.upsert).toHaveBeenCalled();
       expect(result.filename).toContain("backup_");
     });
   });
 
   describe("listBackupSnapshots", () => {
-    it("returns sorted lists of backup files from the backups folder", async () => {
-      vi.mocked(fs.readdir).mockResolvedValue(["backup_1.json", "backup_2.json"] as any);
-      vi.mocked(fs.stat).mockImplementation(async (filePath: any) => {
-        if (filePath.endsWith("backup_1.json")) {
-          return { size: 100, mtime: new Date("2026-06-06T09:00:00.000Z") } as any;
-        }
-        return { size: 200, mtime: new Date("2026-06-06T10:00:00.000Z") } as any;
-      });
+    it("returns sorted lists of backup rows from the database", async () => {
+      vi.mocked(prisma.systemSetting.findMany).mockResolvedValue([
+        { key: "backup_2.json", value: "{}", updatedAt: new Date("2026-06-06T10:00:00.000Z") },
+        { key: "backup_1.json", value: "{}", updatedAt: new Date("2026-06-06T09:00:00.000Z") }
+      ] as any);
 
       const list = await listBackupSnapshots();
 
       expect(list.length).toBe(2);
-      // Sorted desc by time: backup_2 first
       expect(list[0].filename).toBe("backup_2.json");
       expect(list[1].filename).toBe("backup_1.json");
     });
@@ -88,7 +68,10 @@ describe("backupService", () => {
         }
       };
 
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockBackupData));
+      vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({
+        key: "backup_1.json",
+        value: JSON.stringify(mockBackupData)
+      } as any);
       vi.mocked(prisma.emailEvent.deleteMany).mockResolvedValue({ count: 0 });
       vi.mocked(prisma.company.createMany).mockResolvedValue({ count: 1 });
 
@@ -116,7 +99,10 @@ describe("backupService", () => {
         }
       };
 
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockBackupData));
+      vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({
+        key: "backup_1.json",
+        value: JSON.stringify(mockBackupData)
+      } as any);
       
       // Existing records mock
       vi.mocked(prisma.company.findMany).mockResolvedValue([
@@ -162,32 +148,23 @@ describe("backupService", () => {
   });
 
   describe("deleteBackupSnapshot", () => {
-    it("safely unlinks the snapshot file if it exists and path is valid", async () => {
-      vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.unlink).mockResolvedValue(undefined);
+    it("safely deletes the snapshot from the database if filename is valid", async () => {
+      vi.mocked(prisma.systemSetting.delete).mockResolvedValue({} as any);
 
       const result = await deleteBackupSnapshot("backup_1.json");
 
-      expect(fs.access).toHaveBeenCalled();
-      expect(fs.unlink).toHaveBeenCalled();
+      expect(prisma.systemSetting.delete).toHaveBeenCalledWith({
+        where: { key: "backup_1.json" }
+      });
       expect(result.success).toBe(true);
     });
 
     it("prevents directory traversal and returns false for invalid paths", async () => {
       const result = await deleteBackupSnapshot("../malicious_file.json");
 
-      expect(fs.unlink).not.toHaveBeenCalled();
+      expect(prisma.systemSetting.delete).not.toHaveBeenCalled();
       expect(result.success).toBe(false);
-      expect(result.message).toBe("Invalid backup file path.");
-    });
-
-    it("returns success false if file access or unlink fails", async () => {
-      vi.mocked(fs.access).mockRejectedValue(new Error("File not found"));
-
-      const result = await deleteBackupSnapshot("backup_nonexistent.json");
-
-      expect(fs.unlink).not.toHaveBeenCalled();
-      expect(result.success).toBe(false);
+      expect(result.message).toBe("Invalid backup filename.");
     });
   });
 });

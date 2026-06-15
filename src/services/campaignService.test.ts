@@ -581,15 +581,15 @@ describe("processCampaignQueue", () => {
 
     vi.mocked(prisma.campaignState.findMany).mockResolvedValue([mockCampaign] as any);
 
-    const originalGetHours = Date.prototype.getHours;
-    Date.prototype.getHours = vi.fn().mockReturnValue(23);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T17:30:00Z")); // 11:00 PM IST (UTC+5:30)
 
     try {
       const result = await processCampaignQueue();
       expect(result.sentCount).toBe(0);
       expect(sendGmailEmail).not.toHaveBeenCalled();
     } finally {
-      Date.prototype.getHours = originalGetHours;
+      vi.useRealTimers();
     }
   });
 

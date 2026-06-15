@@ -20,6 +20,7 @@ export interface SystemSettings {
   jobSearchKeywords: string;
   jobSearchInterval: number;
   jobSearchTimeRange: string;
+  timezone: string;
 }
 
 export const settingsSchema = z.object({
@@ -40,6 +41,7 @@ export const settingsSchema = z.object({
   jobSearchKeywords: z.string().trim(),
   jobSearchInterval: z.number().int().positive(),
   jobSearchTimeRange: z.string().trim().min(1),
+  timezone: z.string().trim().min(1),
 });
 
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -59,7 +61,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   get jobSearchWorkplaceTypes(): string { return "Hybrid, Remote"; },
   get jobSearchKeywords(): string { return "5 days"; },
   get jobSearchInterval(): number { return 10; },
-  get jobSearchTimeRange(): string { return "r604800"; }
+  get jobSearchTimeRange(): string { return "r604800"; },
+  get timezone(): string { return "Asia/Kolkata"; }
 };
 
 export async function getSystemSetting<T extends keyof SystemSettings>(key: T): Promise<SystemSettings[T]> {

@@ -774,6 +774,22 @@
                           <p class="helper-text">Default sequence length limit for follow-up outreach.</p>
                         </div>
                         <div class="form-group margin-top-16">
+                          <label for="settingsTimezone">Outreach Timezone</label>
+                          <select id="settingsTimezone" class="select-field">
+                            <option value="Asia/Kolkata">Asia/Kolkata (IST - UTC+5:30)</option>
+                            <option value="UTC">UTC (Coordinated Universal Time)</option>
+                            <option value="America/New_York">America/New_York (EST/EDT - UTC-5/UTC-4)</option>
+                            <option value="America/Chicago">America/Chicago (CST/CDT - UTC-6/UTC-5)</option>
+                            <option value="America/Denver">America/Denver (MST/MDT - UTC-7/UTC-6)</option>
+                            <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT - UTC-8/UTC-7)</option>
+                            <option value="Europe/London">Europe/London (GMT/BST - UTC+0/UTC+1)</option>
+                            <option value="Europe/Paris">Europe/Paris (CET/CEST - UTC+1/UTC+2)</option>
+                            <option value="Asia/Singapore">Asia/Singapore (SGT - UTC+8)</option>
+                            <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT - UTC+10/UTC+11)</option>
+                          </select>
+                          <p class="helper-text">Timezone used to evaluate business hours and weekend restrictions.</p>
+                        </div>
+                        <div class="form-group margin-top-16">
                           <label for="settingsDefaultResumeLink">Default Resume Link</label>
                           <input type="url" id="settingsDefaultResumeLink" required class="input-field" />
                           <p class="helper-text">Fallback Google Drive or hosting link for the candidate's resume/portfolio.</p>

@@ -90,6 +90,7 @@ describe("settingsService", () => {
       const all = await getAllSystemSettings();
       expect(all).toEqual({
         respectTiming: false,
+        skipWeekends: true,
         timingStartHour: 9,
         timingEndHour: 17,
         followupIntervalMinutes: 70,
@@ -104,7 +105,8 @@ describe("settingsService", () => {
         jobSearchWorkplaceTypes: "Hybrid, Remote",
         jobSearchKeywords: "5 days",
         jobSearchInterval: 10,
-        jobSearchTimeRange: "r604800"
+        jobSearchTimeRange: "r604800",
+        timezone: "Asia/Kolkata"
       });
     });
   });

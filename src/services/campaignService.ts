@@ -610,9 +610,21 @@ export async function processCampaignQueue() {
   const timingStartHour = await getSystemSetting("timingStartHour");
   const timingEndHour = await getSystemSetting("timingEndHour");
   const skipWeekends = await getSystemSetting("skipWeekends");
+  const timezone = await getSystemSetting("timezone");
 
   try {
     const now = new Date();
+
+    // Resolve timezone safely
+    let targetTimezone = "Asia/Kolkata";
+    try {
+      if (timezone) {
+        new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+        targetTimezone = timezone;
+      }
+    } catch (e) {
+      console.warn(`⚠️ Invalid timezone "${timezone}" configured. Falling back to Asia/Kolkata.`);
+    }
 
     // Find all campaigns that are scheduled or active, and are due to be sent
     const campaigns = await prisma.campaignState.findMany({
@@ -628,7 +640,7 @@ export async function processCampaignQueue() {
     });
 
     if (campaigns.length > 0) {
-      console.log(`\n⏰ [OUTBOX QUEUE ENGINE] Processing ${campaigns.length} pending campaigns...`);
+      console.log(`\n⏰ [OUTBOX QUEUE ENGINE] Processing ${campaigns.length} pending campaigns in timezone ${targetTimezone}...`);
     }
 
     let sentCount = 0;
@@ -640,18 +652,27 @@ export async function processCampaignQueue() {
 
       // Skip sending on weekends if the setting is enabled
       if (skipWeekends) {
-        const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          const dayName = dayOfWeek === 0 ? "Sunday" : "Saturday";
-          console.log(`   📅 [Skip Weekends] Today is ${dayName}. Skipping all campaigns (skipWeekends is enabled).`);
+        const dayOfWeekString = new Intl.DateTimeFormat("en-US", {
+          timeZone: targetTimezone,
+          weekday: "long"
+        }).format(now);
+        if (dayOfWeekString === "Saturday" || dayOfWeekString === "Sunday") {
+          console.log(`   📅 [Skip Weekends] Today is ${dayOfWeekString} in ${targetTimezone}. Skipping all campaigns (skipWeekends is enabled).`);
           break; // All campaigns share the same date — no point iterating further
         }
       }
 
       if (campaign.respectTiming) {
-        const currentHour = now.getHours();
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: targetTimezone,
+          hour: "numeric",
+          hour12: false
+        }).formatToParts(now);
+        const hourVal = parts.find(p => p.type === 'hour')?.value;
+        const currentHour = (hourVal ? parseInt(hourVal, 10) : now.getHours()) % 24;
+
         if (currentHour < timingStartHour || currentHour >= timingEndHour) {
-          console.log(`   ⏳ [Respect Timing] Current hour (${currentHour}) is outside configured window (${timingStartHour}-${timingEndHour}). Skipping candidate: "${to}"`);
+          console.log(`   ⏳ [Respect Timing] Current hour (${currentHour}) in ${targetTimezone} is outside configured window (${timingStartHour}-${timingEndHour}). Skipping candidate: "${to}"`);
           continue;
         }
       }
