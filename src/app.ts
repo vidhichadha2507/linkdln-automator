@@ -108,21 +108,25 @@ export async function buildApp() {
   await registerJobSearchRoutes(app);
 
   // Manual tick route for campaign processing (suitable for serverless environments like Vercel)
-  app.post("/api/campaigns/tick", async (request, reply) => {
-    try {
-      const bounceResult = await pollGmailBounces();
-      const queueResult = await processCampaignQueue();
-      return {
-        success: true,
-        bounceResult,
-        queueResult
-      };
-    } catch (err: any) {
-      request.log.error(err);
-      return reply.status(500).send({
-        error: "Failed to process campaign queue tick",
-        message: err.message
-      });
+  app.route({
+    method: ["GET", "POST"],
+    url: "/api/campaigns/tick",
+    handler: async (request, reply) => {
+      try {
+        const bounceResult = await pollGmailBounces();
+        const queueResult = await processCampaignQueue();
+        return {
+          success: true,
+          bounceResult,
+          queueResult
+        };
+      } catch (err: any) {
+        request.log.error(err);
+        return reply.status(500).send({
+          error: "Failed to process campaign queue tick",
+          message: err.message
+        });
+      }
     }
   });
 
