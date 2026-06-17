@@ -1,0 +1,15 @@
+name: Campaign Scheduler Cron
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Campaign Scheduler Tick
+        run: |
+          curl -s -X GET "https://linkdln-automator-vidhi.vercel.app/api/campaigns/tick"
