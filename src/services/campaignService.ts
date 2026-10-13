@@ -56,7 +56,7 @@ function insertFollowupIntro(body: string, intro: string): string {
 }
 
 export function generateDynamicTemplateFollowup(
-  templateBody: string,
+  _templateBody: string,
   step: number,
   lead: { fullName: string; firstName: string; lastName: string | null; company: { name: string; researchReason?: string | null } },
   roleName?: string,
@@ -65,14 +65,19 @@ export function generateDynamicTemplateFollowup(
   resumeName?: string,
   defaultResumeLink?: string
 ): string {
-  // Resolve all placeholders first
-  const resolvedBody = resolveTemplatePlaceholders(templateBody, lead, jobId, jobLink, resumeName, roleName, defaultResumeLink);
-  
-  // Get the step-specific intro
-  const intro = getTemplateFollowupIntroduction(step);
-  
-  // Insert the intro right after the greeting, preserving the rest of the template in full
-  return insertFollowupIntro(resolvedBody, intro);
+  const companyName = lead.company.name;
+  const role = roleName?.trim() || "DevOps Engineer";
+  const resumeNote = resumeName
+    ? `I shared my resume in my earlier email for context.`
+    : `My resume is linked in my earlier email for context.`;
+
+  // Follow-ups should continue the thread with a short, relevant note instead
+  // of resending the full initial pitch and repeating all of its key points.
+  if (step === 1) {
+    return `Hi ${lead.firstName},\n\nI’m following up on my earlier note about ${role} opportunities at ${companyName}. If there may be a suitable opening, could you point me to the right role or hiring contact? ${resumeNote}\n\nHappy to connect for a quick 15-minute call if there's a fit\n\nRegards,\nVidhi Chadha\n8178113237`;
+  }
+
+  return `Hi ${lead.firstName},\n\nI wanted to check once more on my earlier note about ${role} opportunities at ${companyName}. My recent work at Paytm includes AWS EKS operations, Prometheus and Loki monitoring, and CI/CD automation with Jenkins and ArgoCD. If you’re not the right contact, could you point me to the recruiter or hiring manager for the team? ${resumeNote}\n\nHappy to connect for a quick 15-minute call if there's a fit\n\nRegards,\nVidhi Chadha\n8178113237`;
 }
 
 export function generateSystemTemplateFollowup(
@@ -86,51 +91,16 @@ export function generateSystemTemplateFollowup(
 ): string {
   const firstName = lead.firstName;
   const companyName = lead.company.name;
-  const researchReason = lead.company.researchReason || null;
+  const roleNameVal = roleName?.trim() || "DevOps Engineer";
+  const resumeNote = hasAttachment
+    ? "I shared my resume in my earlier email for context."
+    : "My resume is linked in my earlier email for context.";
 
-  const roleNameVal = roleName && roleName.trim() !== "" ? roleName.trim() : "DevOps Engineer";
-  let jobContext = "";
-  if (jobLink || jobId) {
-    if (jobLink && jobId) {
-      jobContext = ` [Job Link: ${jobLink} / Job ID: ${jobId}]`;
-    } else if (jobLink) {
-      jobContext = ` [Job Link: ${jobLink}]`;
-    } else {
-      jobContext = ` [Job ID: ${jobId}]`;
-    }
+  if (step === 1) {
+    return `Hi ${firstName},\n\nI’m following up on my earlier note about ${roleNameVal} opportunities at ${companyName}. If there may be a suitable opening, could you point me to the right role or hiring contact? ${resumeNote}\n\nHappy to connect for a quick 15-minute call if there's a fit\n\nRegards,\nVidhi Chadha\n8178113237`;
   }
 
-  const resolvedReason = researchReason 
-    ? researchReason.trim() 
-    : "your impressive technology stack, recent software engineering developments, and commitment to building robust distributed systems";
-
-  const finalResumeLink = defaultResumeLink || env.DEFAULT_RESUME_LINK;
-  const resumeContext = hasAttachment
-    ? "I have also attached my resume to this email for your convenience."
-    : `You can view my resume <a href="${finalResumeLink}" target="_blank" style="color: #6366f1; text-decoration: underline;">here</a>.`;
-
-  const resolvedBody = `Hi ${firstName},
-
-I came across the ${roleNameVal} opening at ${companyName}${jobContext} and wanted to reach out directly alongside my application.
-
-I'm a DevOps engineer with 1.5+ years of experience in AWS, Kubernetes, Terraform, and CI/CD pipelines. A few highlights:
-
-• Designed end-to-end monitoring, logging, and alerting systems using Prometheus, Loki, Lambda, and EventBridge
-• Implemented custom load-average based autoscaling using AWS Lambda and DynamoDB
-• Standardized CI/CD pipelines with Jenkins and ArgoCD, automating service provisioning on EKS
-
-I'm specifically interested in ${companyName} because of ${resolvedReason}.
-
-${resumeContext}
-
-Happy to connect for a quick 15-minute call if there's a fit
-
-Regards,
-Vidhi Chadha
-8178113237`;
-
-  const intro = getTemplateFollowupIntroduction(step);
-  return insertFollowupIntro(resolvedBody, intro);
+  return `Hi ${firstName},\n\nI wanted to check once more on my earlier note about ${roleNameVal} opportunities at ${companyName}. My recent DevOps work includes AWS EKS operations, Prometheus and Loki monitoring, and CI/CD automation with Jenkins and ArgoCD. If you’re not the right contact, could you point me to the recruiter or hiring manager for the team? ${resumeNote}\n\nHappy to connect for a quick 15-minute call if there's a fit\n\nRegards,\nVidhi Chadha\n8178113237`;
 }
 
 export function applyDynamicDotsToBody(body: string, step: number): string {
@@ -275,20 +245,21 @@ export function generateInitialSubjectAndBody(
 
   const body = `Hi ${firstName},
 
-I came across the ${roleName} opening at ${companyName}${jobContext} and wanted to reach out directly alongside my application.
+I’m reaching out to ask about potential ${roleName} opportunities at ${companyName}${jobContext}.
 
-I'm a DevOps engineer with 1.5+ years of experience in AWS, Kubernetes, Terraform, and CI/CD pipelines. A few highlights:
+A few relevant highlights from my 1.5+ years of DevOps experience at Paytm:
 
 • Designed end-to-end monitoring, logging, and alerting systems using Prometheus, Loki, Lambda, and EventBridge
 • Implemented custom load-average based autoscaling using AWS Lambda and DynamoDB
-• Standardized CI/CD pipelines with Jenkins and ArgoCD, automating service provisioning on EKS
+• Standardized CI/CD pipelines with Jenkins and ArgoCD, and supported service migration and operations on EKS
 
-I'm specifically interested in ${companyName} because of ${resolvedReason}.
+I’m particularly interested in ${companyName} because of ${resolvedReason}. If your team is hiring for a DevOps or platform role, could you point me to the right opening or hiring contact?
 
 ${resumeContext}
 
-Happy to share more if useful.
+Happy to connect for a quick 15-minute call if there's a fit.
 
+Regards,
 Vidhi Chadha
 8178113237`;
 

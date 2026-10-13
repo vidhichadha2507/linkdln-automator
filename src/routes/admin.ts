@@ -522,11 +522,16 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     try {
       const leads = await prisma.lead.findMany({
         where: { companyId },
-        include: { candidates: true }
+        include: { candidates: true, campaignState: true }
       });
 
       let count = 0;
+      let skippedPreviouslyContacted = 0;
       for (const lead of leads) {
+        if (lead.campaignState?.lastSentAt) {
+          skippedPreviouslyContacted++;
+          continue;
+        }
         const candidate = lead.candidates.find((c) => c.selected) || lead.candidates[0];
         if (candidate) {
           await startCampaign({
@@ -555,7 +560,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         });
       }
 
-      return { success: true, count };
+      return { success: true, count, skippedPreviouslyContacted };
     } catch (error) {
       return reply.status(500).send({ success: false, message: error instanceof Error ? error.message : "Bulk campaign initiation failed" });
     }

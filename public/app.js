@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lastFocusedTemplateField: null,
     isAutoTicking: false,
     selectedLeadId: null,
+    companyScopeFromLead: false,
     bulkCompanyId: null,
     bulkTag: null,
     resumeName: null,
@@ -90,6 +91,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const campaignModal = document.getElementById("campaignModal");
   const campaignForm = document.getElementById("campaignForm");
   const formLeadId = document.getElementById("formLeadId");
+  const formCompanyScopeGroup = document.getElementById("formCompanyScopeGroup");
+  const formCompanyScope = document.getElementById("formCompanyScope");
+  const campaignSubmitButton = campaignForm?.querySelector("button[type='submit']");
   const formRecipientEmail = document.getElementById("formRecipientEmail");
   const formJobId = document.getElementById("formJobId");
   const formJobLink = document.getElementById("formJobLink");
@@ -102,6 +106,18 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const closeModalBtn = document.getElementById("closeModalBtn");
   const cancelModalBtn = document.getElementById("cancelModalBtn");
+  function updateCampaignSubmitLabel() {
+    if (!campaignSubmitButton) return;
+    if (state.bulkCompanyId || (state.companyScopeFromLead && formCompanyScope?.checked)) {
+      campaignSubmitButton.innerText = "Activate for Company";
+    } else if (state.bulkTag) {
+      campaignSubmitButton.innerText = "Activate for Tag";
+    } else {
+      campaignSubmitButton.innerText = "Activate for Lead";
+    }
+  }
+  formCompanyScope?.addEventListener("change", updateCampaignSubmitLabel);
+
 
   // Custom Toast Notifications
   function showToast(message, type = "success") {
@@ -2308,7 +2324,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!lead) return;
 
     state.selectedLeadId = leadId;
+    state.bulkTag = null;
+    state.companyScopeFromLead = true;
     state.bulkCompanyId = null;
+    if (formCompanyScopeGroup) formCompanyScopeGroup.style.display = "flex";
+    if (formCompanyScope) formCompanyScope.checked = true;
+    updateCampaignSubmitLabel();
     formLeadId.value = leadId;
 
     document.getElementById("modalTitle").innerText = "Configure Outreach Campaign";
@@ -2381,8 +2402,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Open Bulk Campaign Setup Drawer for a Company
   async function openBulkCampaignModal(companyId, companyName) {
+    state.bulkTag = null;
+    state.companyScopeFromLead = false;
     state.bulkCompanyId = companyId;
     state.selectedLeadId = null;
+    if (formCompanyScopeGroup) formCompanyScopeGroup.style.display = "none";
+    updateCampaignSubmitLabel();
     formLeadId.value = "";
 
     document.getElementById("modalTitle").innerText = `Start Campaign: ${companyName}`;
@@ -2437,7 +2462,10 @@ document.addEventListener("DOMContentLoaded", () => {
   async function openBulkTagCampaignModal(tag) {
     state.bulkTag = tag;
     state.bulkCompanyId = null;
+    state.companyScopeFromLead = false;
     state.selectedLeadId = null;
+    if (formCompanyScopeGroup) formCompanyScopeGroup.style.display = "none";
+    updateCampaignSubmitLabel();
     formLeadId.value = "";
 
     document.getElementById("modalTitle").innerText = `Start Campaign for Tag: ${tag}`;
@@ -2472,6 +2500,8 @@ document.addEventListener("DOMContentLoaded", () => {
     campaignModal.classList.remove("show");
     state.selectedLeadId = null;
     state.bulkCompanyId = null;
+    state.companyScopeFromLead = false;
+    updateCampaignSubmitLabel();
     state.bulkTag = null;
   }
 
@@ -2497,7 +2527,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const formMaxFollowups = document.getElementById("formMaxFollowups");
       const maxFollowups = formMaxFollowups ? parseInt(formMaxFollowups.value, 10) : 3;
 
-      const submitBtn = campaignForm.querySelector("button[type='submit']");
+      const submitBtn = campaignSubmitButton;
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerText = "Activating...";
@@ -2518,14 +2548,22 @@ document.addEventListener("DOMContentLoaded", () => {
         autoFollowup,
         respectTiming,
         followupIntervalMinutes,
-        maxFollowups,
+        maxFollowups: autoFollowup ? maxFollowups : 0,
         templateId: templateId || undefined
       };
 
       try {
         let endpoint = "/admin/campaigns";
-        if (state.bulkCompanyId) {
-          endpoint = `/admin/companies/${state.bulkCompanyId}/bulk-campaign`;
+        const selectedLead = state.selectedLeadId
+          ? state.leads.find(lead => lead.id === state.selectedLeadId)
+          : null;
+        const companyScopeId = state.bulkCompanyId || (
+          state.companyScopeFromLead && formCompanyScope?.checked && selectedLead
+            ? selectedLead.company.id
+            : null
+        );
+        if (companyScopeId) {
+          endpoint = `/admin/companies/${companyScopeId}/bulk-campaign`;
         } else if (state.bulkTag) {
           endpoint = "/admin/campaigns/bulk-by-tag";
           payload.tag = state.bulkTag;
@@ -2541,8 +2579,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const result = await res.json();
         if (result.success) {
-          if (state.bulkCompanyId) {
-            showToast(`Bulk campaign scheduled successfully for ${result.count} leads!`);
+          if (companyScopeId) {
+            const skipped = Number(result.skippedPreviouslyContacted || 0);
+            showToast(`Campaign scheduled for ${result.count} leads${skipped ? `; skipped ${skipped} previously contacted` : ""}.`);
           } else if (state.bulkTag) {
             showToast(`Bulk campaign scheduled successfully for ${result.count} leads with tag "${state.bulkTag}"!`);
           } else {
@@ -2558,7 +2597,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
-          submitBtn.innerText = "Activate Campaign";
+          updateCampaignSubmitLabel();
         }
       }
     });
