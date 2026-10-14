@@ -178,7 +178,8 @@ export async function registerAdminRoutes(app: FastifyInstance) {
               select: {
                 id: true,
                 status: true,
-                isPaused: true
+                isPaused: true,
+                lastSentAt: true
               }
             }
           }
@@ -198,13 +199,17 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       const pausedCampaignCount = startedCampaigns.filter((lead: any) => 
         lead.campaignState !== null && lead.campaignState.isPaused
       ).length;
+      const skippedPreviouslyContactedCount = company.leads.filter((lead: any) =>
+        lead.campaignState?.lastSentAt !== null && lead.campaignState?.lastSentAt !== undefined
+      ).length;
 
       // Exclude full leads array from output to keep payload lean
       const { leads, ...rest } = company;
       return {
         ...rest,
         startedCampaignCount,
-        pausedCampaignCount
+        pausedCampaignCount,
+        skippedPreviouslyContactedCount
       };
     });
   });
@@ -527,6 +532,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
 
       let count = 0;
       let skippedPreviouslyContacted = 0;
+      let skippedWithoutCandidate = 0;
       for (const lead of leads) {
         if (lead.campaignState?.lastSentAt) {
           skippedPreviouslyContacted++;
@@ -549,6 +555,8 @@ export async function registerAdminRoutes(app: FastifyInstance) {
             templateId
           });
           count++;
+        } else {
+          skippedWithoutCandidate++;
         }
       }
 
@@ -560,7 +568,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         });
       }
 
-      return { success: true, count, skippedPreviouslyContacted };
+      return { success: true, count, skippedPreviouslyContacted, skippedWithoutCandidate };
     } catch (error) {
       return reply.status(500).send({ success: false, message: error instanceof Error ? error.message : "Bulk campaign initiation failed" });
     }
@@ -1117,6 +1125,18 @@ export async function registerAdminRoutes(app: FastifyInstance) {
 
   // List all templates
   app.get("/admin/templates", async () => {
+    const defaultTemplate = await prisma.template.findFirst({ where: { isDefault: true } });
+    if (!defaultTemplate) {
+      await prisma.template.create({
+        data: {
+          id: "vidhi-default-devops-outreach",
+          name: "Default DevOps Outreach",
+          subject: "DevOps / Platform Engineering Opportunities | 1.5+ Years | {company}",
+          body: `Hi {first_name},\n\nI’m reaching out to ask about potential {role} opportunities at {company}.\n\nI have 1.5+ years of DevOps experience at Paytm, with work across:\n• Operating AWS EKS and supporting service migration\n• Monitoring and logging with Prometheus and Loki, plus Lambda/EventBridge automation\n• CI/CD with Jenkins and ArgoCD, and load-based autoscaling using Lambda and DynamoDB\n\nI’ve attached my resume for context. If there may be a suitable DevOps or platform opening, could you point me to the right role or hiring contact?\n\nThanks for your time,\nVidhi Chadha\n8178113237`,
+          isDefault: true
+        }
+      });
+    }
     return prisma.template.findMany({
       orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }]
     });
