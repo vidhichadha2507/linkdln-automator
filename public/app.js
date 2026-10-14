@@ -242,7 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchCompanies() {
     try {
       const res = await fetch("/admin/companies");
-      state.companies = await res.json();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const companies = await res.json();
+      if (Array.isArray(companies)) state.companies = companies;
     } catch (e) {
       console.error("Failed to fetch companies list:", e);
     }
@@ -1779,6 +1781,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const statusBadge = c => {
+        if (c.startedCampaignCount === 0 && c.skippedPreviouslyContactedCount > 0) return `<span class="campaign-status-badge badge-paused">Previously Contacted</span>`;
         if (c.startedCampaignCount === 0) return `<span class="campaign-status-badge badge-no-campaign">No Campaign</span>`;
         if (c.pausedCampaignCount === c.startedCampaignCount) return `<span class="campaign-status-badge badge-paused">Paused</span>`;
         return `<span class="campaign-status-badge badge-active">Active</span>`;
@@ -1800,6 +1803,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   ${company._count?.leads || 0} lead${(company._count?.leads || 0) !== 1 ? "s" : ""}
                   &bull; ${company.startedCampaignCount} active campaign${company.startedCampaignCount !== 1 ? "s" : ""}
                   ${company.startedCampaignCount > 0 ? `&bull; ${company.pausedCampaignCount} paused` : ""}
+                  ${company.skippedPreviouslyContactedCount > 0 ? `&bull; ${company.skippedPreviouslyContactedCount} previously contacted (excluded)` : ""}
                 </span>
               </div>
             </div>
@@ -2291,7 +2295,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!file) {
         state.resumeName = null;
         state.resumeBase64 = null;
-        resumeUploadStatus.innerText = "Upload to attach to initial mail";
+        resumeUploadStatus.innerText = "Vidhi_chadha_resume.pdf will be attached to the initial email unless you select another PDF.";
         return;
       }
 
@@ -2360,8 +2364,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (formRoleName) formRoleName.value = campaign.roleName || "";
       formAutoFollowup.checked = campaign.status !== "completed" && campaign.status !== "bounced" && campaign.status !== "replied";
       if (formRespectTiming) formRespectTiming.checked = campaign.respectTiming || false;
-      if (formFollowupInterval) formFollowupInterval.value = campaign.followupIntervalMinutes || "70";
-      if (formMaxFollowups) formMaxFollowups.value = campaign.maxFollowups !== undefined ? campaign.maxFollowups : "3";
+      if (formFollowupInterval) formFollowupInterval.value = campaign.followupIntervalMinutes || "150";
+      if (formMaxFollowups) formMaxFollowups.value = campaign.maxFollowups !== undefined ? campaign.maxFollowups : "2";
       if (campaign.scheduledFor) {
         const d = new Date(campaign.scheduledFor);
         const pad = (n) => n.toString().padStart(2, '0');
@@ -2373,7 +2377,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (campaign.resumeName) {
         resumeUploadStatus.innerText = `Existing attached resume: "${campaign.resumeName}"`;
       } else {
-        resumeUploadStatus.innerText = "Upload to attach to initial mail";
+        resumeUploadStatus.innerText = "Vidhi_chadha_resume.pdf will be attached to the initial email. Choose another PDF only to override it for this campaign.";
       }
     } else {
       // Clear inputs
@@ -2383,9 +2387,9 @@ document.addEventListener("DOMContentLoaded", () => {
       formScheduleDate.value = "";
       formAutoFollowup.checked = true;
       if (formRespectTiming) formRespectTiming.checked = state.settings ? state.settings.respectTiming : false;
-      if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "70";
-      if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "3";
-      resumeUploadStatus.innerText = "Upload to attach to initial mail";
+      if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "150";
+      if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "2";
+      resumeUploadStatus.innerText = "Vidhi_chadha_resume.pdf will be attached to the initial email. Choose another PDF only to override it for this campaign.";
     }
 
     state.resumeName = null;
@@ -2422,10 +2426,10 @@ document.addEventListener("DOMContentLoaded", () => {
     formAutoFollowup.checked = true;
     if (formRespectTiming) formRespectTiming.checked = state.settings ? state.settings.respectTiming : false;
     const formFollowupInterval = document.getElementById("formFollowupInterval");
-    if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "70";
+    if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "150";
     const formMaxFollowups = document.getElementById("formMaxFollowups");
-    if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "3";
-    resumeUploadStatus.innerText = "Upload to attach to initial mail";
+    if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "2";
+    resumeUploadStatus.innerText = "Vidhi_chadha_resume.pdf will be attached to the initial email. Choose another PDF only to override it for this campaign.";
 
     state.resumeName = null;
     state.resumeBase64 = null;
@@ -2480,10 +2484,10 @@ document.addEventListener("DOMContentLoaded", () => {
     formAutoFollowup.checked = true;
     if (formRespectTiming) formRespectTiming.checked = state.settings ? state.settings.respectTiming : false;
     const formFollowupInterval = document.getElementById("formFollowupInterval");
-    if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "70";
+    if (formFollowupInterval) formFollowupInterval.value = state.settings ? state.settings.followupIntervalMinutes : "150";
     const formMaxFollowups = document.getElementById("formMaxFollowups");
-    if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "3";
-    resumeUploadStatus.innerText = "Upload to attach to initial mail";
+    if (formMaxFollowups) formMaxFollowups.value = state.settings ? state.settings.maxFollowups : "2";
+    resumeUploadStatus.innerText = "Vidhi_chadha_resume.pdf will be attached to the initial email. Choose another PDF only to override it for this campaign.";
 
     state.resumeName = null;
     state.resumeBase64 = null;
@@ -2523,9 +2527,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const autoFollowup = formAutoFollowup.checked;
       const respectTiming = formRespectTiming ? formRespectTiming.checked : false;
       const formFollowupInterval = document.getElementById("formFollowupInterval");
-      const followupIntervalMinutes = formFollowupInterval ? parseInt(formFollowupInterval.value, 10) : 70;
+      const followupIntervalMinutes = formFollowupInterval ? parseInt(formFollowupInterval.value, 10) : 150;
       const formMaxFollowups = document.getElementById("formMaxFollowups");
-      const maxFollowups = formMaxFollowups ? parseInt(formMaxFollowups.value, 10) : 3;
+      const maxFollowups = formMaxFollowups ? parseInt(formMaxFollowups.value, 10) : 2;
 
       const submitBtn = campaignSubmitButton;
       if (submitBtn) {
@@ -2581,14 +2585,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.success) {
           if (companyScopeId) {
             const skipped = Number(result.skippedPreviouslyContacted || 0);
-            showToast(`Campaign scheduled for ${result.count} leads${skipped ? `; skipped ${skipped} previously contacted` : ""}.`);
+            const noCandidate = Number(result.skippedWithoutCandidate || 0);
+            if (result.count > 0) {
+              showToast(`Campaign started for ${result.count} leads${skipped ? `; ${skipped} previously contacted leads excluded` : ""}${noCandidate ? `; ${noCandidate} without email skipped` : ""}.`);
+            } else {
+              showToast(`No campaign started: ${skipped} previously contacted and ${noCandidate} leads without an email candidate were skipped.`, "error");
+            }
           } else if (state.bulkTag) {
             showToast(`Bulk campaign scheduled successfully for ${result.count} leads with tag "${state.bulkTag}"!`);
           } else {
             showToast(`Campaign scheduled/activated successfully!`);
           }
           closeModal();
-          updateUI();
+          await updateUI();
         } else {
           showToast(result.message || "Failed to save campaign", "error");
         }
@@ -3986,8 +3995,8 @@ Vidhi Chadha
       if (settingsSkipWeekends) settingsSkipWeekends.checked = settings.skipWeekends !== undefined ? settings.skipWeekends : true;
       if (settingsTimingStartHour) settingsTimingStartHour.value = settings.timingStartHour !== undefined ? settings.timingStartHour : 9;
       if (settingsTimingEndHour) settingsTimingEndHour.value = settings.timingEndHour !== undefined ? settings.timingEndHour : 17;
-      if (settingsFollowupInterval) settingsFollowupInterval.value = settings.followupIntervalMinutes || 70;
-      if (settingsMaxFollowups) settingsMaxFollowups.value = settings.maxFollowups !== undefined ? settings.maxFollowups : 3;
+      if (settingsFollowupInterval) settingsFollowupInterval.value = settings.followupIntervalMinutes || 150;
+      if (settingsMaxFollowups) settingsMaxFollowups.value = settings.maxFollowups !== undefined ? settings.maxFollowups : 2;
       if (settingsTimezone) settingsTimezone.value = settings.timezone || "Asia/Kolkata";
       if (settingsDefaultResumeLink) settingsDefaultResumeLink.value = settings.defaultResumeLink || "";
       if (settingsVerifierProvider) settingsVerifierProvider.value = settings.emailVerifierProvider || "local";
@@ -4049,8 +4058,8 @@ Vidhi Chadha
       skipWeekends: document.getElementById("settingsSkipWeekends") ? document.getElementById("settingsSkipWeekends").checked : true,
       timingStartHour: settingsTimingStartHour ? parseInt(settingsTimingStartHour.value, 10) : 9,
       timingEndHour: settingsTimingEndHour ? parseInt(settingsTimingEndHour.value, 10) : 17,
-      followupIntervalMinutes: settingsFollowupInterval ? parseInt(settingsFollowupInterval.value, 10) : 70,
-      maxFollowups: settingsMaxFollowups ? parseInt(settingsMaxFollowups.value, 10) : 3,
+      followupIntervalMinutes: settingsFollowupInterval ? parseInt(settingsFollowupInterval.value, 10) : 150,
+      maxFollowups: settingsMaxFollowups ? parseInt(settingsMaxFollowups.value, 10) : 2,
       timezone: settingsTimezone ? settingsTimezone.value : "Asia/Kolkata",
       defaultResumeLink: settingsDefaultResumeLink ? settingsDefaultResumeLink.value : "",
       emailVerifierProvider: settingsVerifierProvider ? settingsVerifierProvider.value : "local",
@@ -4430,6 +4439,7 @@ Vidhi Chadha
     fetchLeads().then(renderLeadsTable);
     fetchEvents().then(renderTimelineLogs);
     fetchQueue().then(renderQueueTable);
+    fetchCompanies().then(renderCompaniesList);
     fetchApplications().then(renderApplications);
     updateGoogleStatus();
     checkGmailQuotaStatus();

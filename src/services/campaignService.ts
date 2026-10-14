@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { prisma } from "../lib/prisma.js";
 import { sendGmailEmail, pollGmailBounces, isGmailQuotaHalted } from "./gmailService.js";
 import { recordEmailEvent } from "./emailEventService.js";
@@ -21,6 +23,22 @@ export type StartCampaignInput = {
   roleName?: string;
   templateId?: string;
 };
+
+const DEFAULT_RESUME_NAME = "Vidhi_chadha_resume.pdf";
+
+function loadDefaultResumeAttachment(): { name: string; base64: string } {
+  const resumePath = path.resolve(process.cwd(), "public", DEFAULT_RESUME_NAME);
+  if (!fs.existsSync(resumePath)) {
+    throw new Error("The default resume PDF is missing from the deployment.");
+  }
+
+  const contents = fs.readFileSync(resumePath);
+  if (contents.length === 0) {
+    throw new Error("The default resume PDF is empty.");
+  }
+
+  return { name: DEFAULT_RESUME_NAME, base64: contents.toString("base64") };
+}
 
 // Helper function to format plain text email bodies to HTML
 function formatEmailBody(plainText: string): string {
@@ -417,6 +435,11 @@ export async function startCampaign(input: StartCampaignInput) {
     throw new Error("Target email candidate not found");
   }
 
+  const hasUploadedResume = Boolean(input.resumeName && input.resumeBase64);
+  const defaultAttachment = hasUploadedResume ? null : loadDefaultResumeAttachment();
+  const resumeName = hasUploadedResume ? input.resumeName! : defaultAttachment!.name;
+  const resumeBase64 = hasUploadedResume ? input.resumeBase64! : defaultAttachment!.base64;
+
   // Pre-select this candidate in the lead's list
   await prisma.emailCandidate.updateMany({
     where: { leadId: input.leadId },
@@ -441,7 +464,7 @@ export async function startCampaign(input: StartCampaignInput) {
   }
 
   const maxFollowups = input.maxFollowups !== undefined ? input.maxFollowups : defaultMaxFollowups;
-  const hasAttachment = !!(input.resumeName && input.resumeBase64);
+  const hasAttachment = Boolean(resumeName && resumeBase64);
 
   // Query for an existing campaign state for this lead
   const existingCampaign = await prisma.campaignState.findUnique({
@@ -463,8 +486,8 @@ export async function startCampaign(input: StartCampaignInput) {
       where: { id: requestTemplateId }
     });
     if (template) {
-      subject = resolveTemplatePlaceholders(template.subject, lead, input.jobId, input.jobLink, input.resumeName, input.roleName, defaultResumeLink);
-      body = formatEmailBody(resolveTemplatePlaceholders(template.body, lead, input.jobId, input.jobLink, input.resumeName, input.roleName, defaultResumeLink));
+      subject = resolveTemplatePlaceholders(template.subject, lead, input.jobId, input.jobLink, resumeName, input.roleName, defaultResumeLink);
+      body = formatEmailBody(resolveTemplatePlaceholders(template.body, lead, input.jobId, input.jobLink, resumeName, input.roleName, defaultResumeLink));
       resolvedTemplateId = template.id;
     }
   }
@@ -474,8 +497,8 @@ export async function startCampaign(input: StartCampaignInput) {
       where: { isDefault: true }
     });
     if (defaultTemplate) {
-      subject = resolveTemplatePlaceholders(defaultTemplate.subject, lead, input.jobId, input.jobLink, input.resumeName, input.roleName, defaultResumeLink);
-      body = formatEmailBody(resolveTemplatePlaceholders(defaultTemplate.body, lead, input.jobId, input.jobLink, input.resumeName, input.roleName, defaultResumeLink));
+      subject = resolveTemplatePlaceholders(defaultTemplate.subject, lead, input.jobId, input.jobLink, resumeName, input.roleName, defaultResumeLink);
+      body = formatEmailBody(resolveTemplatePlaceholders(defaultTemplate.body, lead, input.jobId, input.jobLink, resumeName, input.roleName, defaultResumeLink));
       resolvedTemplateId = defaultTemplate.id;
     }
   }
@@ -519,8 +542,8 @@ export async function startCampaign(input: StartCampaignInput) {
         status: targetStatus,
         jobLink: input.jobLink || null,
         jobId: input.jobId || null,
-        resumeName: input.resumeName || null,
-        resumePath: input.resumeBase64 || null,
+        resumeName,
+        resumePath: resumeBase64,
         scheduledFor: targetScheduledFor,
         lastSentAt: targetLastSentAt,
         followupCount: targetFollowupCount,
@@ -543,8 +566,8 @@ export async function startCampaign(input: StartCampaignInput) {
         status: "scheduled",
         jobLink: input.jobLink || null,
         jobId: input.jobId || null,
-        resumeName: input.resumeName || null,
-        resumePath: input.resumeBase64 || null,
+        resumeName,
+        resumePath: resumeBase64,
         scheduledFor: scheduledDate,
         followupCount: 0,
         followupIntervalMinutes,
