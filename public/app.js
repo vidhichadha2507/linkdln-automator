@@ -405,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const filterVal = filterEl ? filterEl.value : (state.discoveredJobsFilter || "all");
     state.discoveredJobsFilter = filterVal;
 
-    let apps = (state.applications || []).filter(app => app.jobId);
+    let apps = (state.applications || []).filter(app => app.jobId || app.jobMetadata?.importSource === "csv");
 
     if (filterVal === "matched") {
       apps = apps.filter(app => app.status === "Not Applied");
@@ -470,6 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const currentStatusClass = statusClassMap[app.status] || "status-not-applied";
       const cleanCompanyName = deduplicateText(app.companyName);
       const cleanRole = deduplicateText(app.role);
+      const jobMetadataHtml = renderImportedJobMetadata(app.jobMetadata);
 
       let statusSelectOptions = statuses.map(s => {
         const selected = app.status === s ? "selected" : "";
@@ -496,6 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>
             <div style="font-weight: 500; font-size:13.5px; color:var(--color-text);">${cleanRole}</div>
             ${screenOutReasonHtml}
+            ${jobMetadataHtml}
           </td>
           <td>${jobIdHtml}</td>
           <td>${jobLinkHtml}</td>
@@ -554,6 +556,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!applicationsTableContainer) return;
 
     const apps = (state.applications || []).filter(app => {
+      if (app.jobMetadata?.importSource === "csv") return false;
       // Show manual applications (no jobId)
       if (!app.jobId) return true;
       // For automated jobs, only show them if status has been updated from the initial discovery values
@@ -623,6 +626,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const currentStatusClass = statusClassMap[app.status] || "status-not-applied";
       const cleanCompanyName = deduplicateText(app.companyName);
       const cleanRole = deduplicateText(app.role);
+      const jobMetadataHtml = renderImportedJobMetadata(app.jobMetadata);
 
       let statusSelectOptions = statuses.map(s => {
         const selected = app.status === s ? "selected" : "";
@@ -642,6 +646,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
           <td>
             <div style="font-weight: 500; font-size:13.5px; color:var(--color-text);">${cleanRole}</div>
+            ${jobMetadataHtml}
           </td>
           <td>
             ${jobIdHtml}
@@ -711,6 +716,28 @@ document.addEventListener("DOMContentLoaded", () => {
         startEditApplication(appId);
       });
     });
+  }
+
+  function renderImportedJobMetadata(metadata) {
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
+    const preferred = [
+      ["location", "Location"], ["experience", "Experience"], ["experienceRange", "Experience"],
+      ["workplaceType", "Workplace"], ["employmentType", "Employment"], ["seniorityLevel", "Level"],
+      ["postedAt", "Posted"], ["posterName", "Posted by"]
+    ];
+    const details = preferred.map(([key, label]) => {
+      const value = metadata[key];
+      return typeof value === "string" && value.trim()
+        ? `<span style="margin-right:8px;">${escHtml(label)}: ${escHtml(value.trim())}</span>`
+        : "";
+    }).join("");
+    const description = typeof metadata.description === "string" ? metadata.description.trim() : "";
+    const descriptionHtml = description
+      ? `<details style="margin-top:4px;font-size:12px;"><summary style="cursor:pointer;color:var(--color-primary);">Job description</summary><div style="max-width:520px;max-height:220px;overflow:auto;white-space:pre-wrap;color:var(--color-text-muted);padding:6px 0;">${escHtml(description)}</div></details>`
+      : "";
+    return details || descriptionHtml
+      ? `<div style="margin-top:5px;font-size:11.5px;color:var(--color-text-muted);">${details}${descriptionHtml}</div>`
+      : "";
   }
 
   function startEditApplication(id) {
@@ -4415,6 +4442,144 @@ Vidhi Chadha
       navigator.clipboard.writeText(text)
         .then(() => showToast(`Copied ${importedCompanies.length} search URLs to clipboard!`))
         .catch(() => showToast("Copy failed — try selecting text manually.", "error"));
+    });
+  })();
+
+  // ─── CSV JOB OPENINGS IMPORT ─────────────────────────────────────────────
+  (function initJobCsvImport() {
+    const fileInput = document.getElementById("jobCsvFileInput");
+    const previewWrap = document.getElementById("jobCsvPreviewWrap");
+    const previewSummary = document.getElementById("jobCsvPreviewSummary");
+    const previewHead = document.getElementById("jobCsvPreviewHead");
+    const previewBody = document.getElementById("jobCsvPreviewBody");
+    const importButton = document.getElementById("jobCsvImportBtn");
+    const importStatus = document.getElementById("jobCsvImportStatus");
+    const templateButton = document.getElementById("downloadJobCsvTemplateBtn");
+    if (!fileInput || !importButton) return;
+
+    const aliases = {
+      companyName: ["company_name", "company", "companyname", "employer", "organization", "organisation"],
+      role: ["job_title", "title", "role", "position", "position_title"],
+      jobLink: ["job_link", "job_url", "url", "link", "application_url", "apply_url"],
+      jobId: ["job_id", "jobid", "requisition_id", "requisitionid", "posting_id"]
+    };
+    let importRows = [];
+    let invalidRows = 0;
+
+    const normalizeHeader = value => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const quoteCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+    templateButton?.addEventListener("click", () => {
+      const columns = ["company_name", "job_title", "job_link", "job_id", "location", "experience", "workplace_type", "employment_type", "seniority_level", "posted_at", "description", "poster_name", "poster_headline", "poster_profile_url"];
+      const example = ["Example Technologies", "Junior DevOps Engineer", "https://example.com/jobs/123", "JOB-123", "Bengaluru, India", "1-2 years", "Hybrid", "Full-time", "Junior", "2026-10-14", "Short role description", "Recruiter Name", "Technical Recruiter", "https://www.linkedin.com/in/example"];
+      const blob = new Blob([`${columns.map(quoteCsv).join(",")}\r\n${example.map(quoteCsv).join(",")}\r\n`], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "job-openings-template.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      if (file.size > 500 * 1024) {
+        showToast("CSV must be smaller than 500 KB so its rows fit in one import request.", "error");
+        fileInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          const workbook = XLSX.read(event.target.result, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
+          if (rows.length < 2) throw new Error("The CSV needs a header row and at least one job row.");
+          const headers = rows[0].map(value => String(value || "").trim());
+          if (headers.length < 2) throw new Error("Could not read the CSV column headers.");
+          const normalized = headers.map(normalizeHeader);
+          const findIndex = key => normalized.findIndex(header => aliases[key].some(alias => normalizeHeader(alias) === header));
+          const indexes = { companyName: findIndex("companyName"), role: findIndex("role"), jobLink: findIndex("jobLink"), jobId: findIndex("jobId") };
+          if (indexes.companyName < 0 || indexes.role < 0) {
+            throw new Error("Required columns not found. Use company_name and job_title; download the CSV template for the full format.");
+          }
+
+          invalidRows = 0;
+          importRows = rows.slice(1).filter(row => row.some(cell => String(cell || "").trim())).map(row => {
+            const companyName = String(row[indexes.companyName] || "").trim();
+            const role = String(row[indexes.role] || "").trim();
+            if (!companyName || !role) {
+              invalidRows++;
+              return null;
+            }
+            const metadata = {};
+            const metadataAliases = {
+              location: ["location", "city", "job_location"],
+              experience: ["experience", "experience_range", "years_of_experience"],
+              workplaceType: ["workplace_type", "workplace", "remote_type"],
+              employmentType: ["employment_type", "job_type"],
+              seniorityLevel: ["seniority_level", "seniority"],
+              postedAt: ["posted_at", "date_posted", "posted_date"],
+              description: ["description", "job_description"],
+              posterName: ["poster_name", "recruiter_name", "hiring_contact"],
+              posterHeadline: ["poster_headline", "recruiter_headline"],
+              posterProfileUrl: ["poster_profile_url", "recruiter_linkedin", "poster_linkedin_url"]
+            };
+            headers.forEach((header, i) => {
+              const value = String(row[i] || "").trim();
+              if (!header || !value) return;
+              const canonicalKey = Object.entries(metadataAliases).find(([, names]) => names.some(name => normalizeHeader(name) === normalizeHeader(header)))?.[0];
+              metadata[canonicalKey || header] = value;
+            });
+            return {
+              companyName,
+              role,
+              jobLink: indexes.jobLink >= 0 ? String(row[indexes.jobLink] || "").trim() : "",
+              jobId: indexes.jobId >= 0 ? String(row[indexes.jobId] || "").trim() : "",
+              metadata
+            };
+          }).filter(Boolean);
+          if (importRows.length > 1000) throw new Error("This file has more than 1,000 valid rows. Split it into smaller CSV files.");
+
+          previewHead.innerHTML = `<tr>${headers.slice(0, 8).map(header => `<th>${escHtml(header)}</th>`).join("")}</tr>`;
+          previewBody.innerHTML = rows.slice(1, 6).map(row => `<tr>${headers.slice(0, 8).map((_, i) => `<td>${escHtml(String(row[i] || ""))}</td>`).join("")}</tr>`).join("");
+          previewSummary.textContent = `${file.name}: ${importRows.length} valid job opening(s)${invalidRows ? `; ${invalidRows} row(s) missing company or title will be skipped` : ""}. Existing matching openings will be skipped.`;
+          importStatus.textContent = "";
+          importButton.disabled = importRows.length === 0;
+          previewWrap.style.display = "block";
+        } catch (error) {
+          importRows = [];
+          previewWrap.style.display = "none";
+          showToast(error.message || "Could not parse CSV file.", "error");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    importButton.addEventListener("click", async () => {
+      if (!importRows.length) return;
+      importButton.disabled = true;
+      importStatus.textContent = "Importing…";
+      try {
+        const response = await fetch("/admin/applications/bulk-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobs: importRows })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || "Job import failed.");
+        await fetchApplications();
+        renderApplications();
+        importStatus.textContent = `Added ${result.added}; skipped ${result.skippedDuplicates} duplicate(s)${invalidRows ? ` and ${invalidRows} incomplete row(s)` : ""}.`;
+        showToast(`Imported ${result.added} new job opening(s); skipped ${result.skippedDuplicates} duplicate(s).`);
+        importRows = [];
+        fileInput.value = "";
+      } catch (error) {
+        importStatus.textContent = "Import failed.";
+        showToast(error.message || "Job import failed.", "error");
+        importButton.disabled = false;
+      }
     });
   })();
 

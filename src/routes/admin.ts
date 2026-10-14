@@ -996,6 +996,16 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     jobId: z.string().trim().optional().nullable(),
   });
 
+  const bulkJobImportSchema = z.object({
+    jobs: z.array(z.object({
+      companyName: z.string().trim().min(1).max(200),
+      role: z.string().trim().min(1).max(300),
+      jobLink: z.string().trim().url().or(z.literal("")).optional().nullable(),
+      jobId: z.string().trim().max(300).optional().nullable(),
+      metadata: z.record(z.string(), z.unknown()).optional()
+    })).min(1).max(1000)
+  });
+
   const updateApplicationSchema = z.object({
     status: z.enum([
       "Not Applied",
@@ -1042,6 +1052,51 @@ export async function registerAdminRoutes(app: FastifyInstance) {
     });
     
     return reply.status(201).send({ success: true, application });
+  });
+
+  app.post("/admin/applications/bulk-import", async (request, reply) => {
+    const parsed = bulkJobImportSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        message: "Each row needs a company name and job title. Upload at most 1,000 rows per file.",
+        details: parsed.error.issues
+      });
+    }
+
+    let added = 0;
+    let skippedDuplicates = 0;
+    for (const job of parsed.data.jobs) {
+      const companyName = job.companyName.trim();
+      const role = job.role.trim();
+      const jobLink = job.jobLink?.trim() || null;
+      const jobId = job.jobId?.trim() || null;
+      const duplicate = await prisma.application.findFirst({
+        where: jobId
+          ? { OR: [{ jobId }, ...(jobLink ? [{ jobLink }] : [])] }
+          : jobLink
+            ? { jobLink }
+            : { companyName: { equals: companyName, mode: "insensitive" }, role: { equals: role, mode: "insensitive" } }
+      });
+      if (duplicate) {
+        skippedDuplicates++;
+        continue;
+      }
+
+      await prisma.application.create({
+        data: {
+          companyName,
+          role,
+          jobLink,
+          jobId,
+          status: "Not Applied",
+          jobMetadata: { ...(job.metadata ? JSON.parse(JSON.stringify(job.metadata)) : {}), importSource: "csv" }
+        }
+      });
+      added++;
+    }
+
+    return { success: true, added, skippedDuplicates };
   });
 
   app.patch("/admin/applications/:id", async (request, reply) => {
