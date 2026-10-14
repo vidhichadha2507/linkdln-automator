@@ -692,6 +692,30 @@
                   </div>
                 </form>
 
+                <div class="settings-card margin-top-24" id="jobCsvImportCard">
+                  <div class="settings-card-header">
+                    <span class="settings-card-icon">📥</span>
+                    <h3>Import Job Openings from CSV</h3>
+                  </div>
+                  <div class="settings-card-body">
+                    <p class="helper-text" style="margin-bottom: 14px;">Upload a CSV exported from Grok or another source. Required columns: <strong>company_name</strong> and <strong>job_title</strong>. Job link, location, experience, description, poster, and other columns are saved with each opening.</p>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                      <input type="file" id="jobCsvFileInput" accept=".csv,text/csv" class="input-field" style="max-width:420px;" />
+                      <button type="button" id="downloadJobCsvTemplateBtn" class="btn btn-outline">Download CSV template</button>
+                    </div>
+                    <div id="jobCsvPreviewWrap" style="display:none;margin-top:16px;">
+                      <div id="jobCsvPreviewSummary" class="helper-text" style="margin-bottom:8px;"></div>
+                      <div class="table-wrapper" style="max-height:260px;overflow:auto;">
+                        <table class="data-table"><thead id="jobCsvPreviewHead"></thead><tbody id="jobCsvPreviewBody"></tbody></table>
+                      </div>
+                      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;">
+                        <button type="button" id="jobCsvImportBtn" class="btn btn-accent" disabled>Import job openings</button>
+                        <span id="jobCsvImportStatus" class="helper-text"></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Discovered Jobs Output section -->
                 <div class="margin-top-32" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
                   <div class="section-header-row" style="margin-bottom: 16px;">

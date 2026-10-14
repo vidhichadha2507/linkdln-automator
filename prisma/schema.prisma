@@ -181,6 +181,7 @@ model Application {
   role            String
   jobLink         String?  @map("job_link")
   jobId           String?  @map("job_id")
+  jobMetadata     Json?    @map("job_metadata")
   status          String   @default("Not Applied") // Not Applied, Applied, Screen out, Reached out, Interviewing, Selected, Rejected
   screenOutReason String?  @map("screen_out_reason")
   createdAt       DateTime @default(now()) @map("created_at")
